@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-widestring = "^0.5.1"
 wchar = "^0.11"
 winapi = { version = "^0.3.7", features = ["consoleapi"] }
 libc = {version = "^0.2.107"}
