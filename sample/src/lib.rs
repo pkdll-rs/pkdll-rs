@@ -1,5 +1,5 @@
 mod sample;
-mod info_funcs;
+mod dllmain;
 mod utils {
     pub mod cstring;
 }

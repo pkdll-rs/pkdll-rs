@@ -4,8 +4,8 @@ pub use std::ffi::OsString;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::ffi::OsStringExt;
 
-pub fn string_as_widechar(s: String) -> Vec<u16> {
-    OsStr::new(&s).encode_wide().chain(once(0)).collect()
+pub fn string_as_widechar(s: &str) -> Vec<u16> {
+    OsStr::new(s).encode_wide().chain(once(0)).collect()
 }
 
 pub fn widechar_to_string(data_ptr: *const u16) -> Result<String, OsString> {
