@@ -16,17 +16,17 @@ const DEBUG: bool = false;
 
 #[no_mangle]
 pub extern "stdcall" fn info_getAuthor() ->  *const u16 {
-    return AUTHOR.as_ptr();
+    AUTHOR.as_ptr()
 }
 
 #[no_mangle]
 pub extern "stdcall" fn info_getVersion() ->  *const u16 {
-    return VER.as_ptr();
+    VER.as_ptr()
 }
 
 #[no_mangle]
 pub extern "stdcall" fn info_getDescription() ->  *const u16 {
-    return DESC.as_ptr();
+    DESC.as_ptr()
 }
 
 #[no_mangle]

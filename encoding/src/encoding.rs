@@ -20,18 +20,13 @@ pub extern "stdcall" fn b64_encode(data_ptr: *const u16) -> *const u16 {
 pub extern "stdcall" fn b64_decode(data_ptr: *const u16) -> *const u16 {
     let data = crate::utils::cstring::from_ptr(data_ptr).unwrap();
 
-    let decoded_data = base64::decode(data);
-    let wstring = match decoded_data {
-        Ok(data) => {
-            crate::utils::cstring::to_widechar(&String::from_utf8_lossy(&data))
-        }
+    let decoded_data = base64::decode(data).unwrap_or_else(|error| {
+        let mut err_string = error.to_string();
+        err_string.insert_str(0, ERR);
+        err_string.into_bytes()
+    });
 
-        Err(error) => {
-            let mut err_string = error.to_string();
-            err_string.insert_str(0, ERR);
-            crate::utils::cstring::to_widechar(&err_string)
-        }
-    };
+    let wstring = crate::utils::cstring::to_widechar(&String::from_utf8_lossy(&decoded_data));
 
     mem::ManuallyDrop::new(wstring).as_ptr()
 }
