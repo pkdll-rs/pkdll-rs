@@ -5,10 +5,20 @@ use hex;
 
 const ERR: &str = "ERR|";
 
+
+#[no_mangle]
+pub extern "stdcall" fn b64_encode(data_ptr: *const u16) -> *const u16 {
+    let data = crate::utils::cstring::from_ptr(data_ptr).unwrap();
+
+    let encoded_data = base64::encode(data);
+    let wstring = crate::utils::cstring::to_widechar(&encoded_data);
+
+    mem::ManuallyDrop::new(wstring).as_ptr()
+}
+
 #[no_mangle]
 pub extern "stdcall" fn b64_decode(data_ptr: *const u16) -> *const u16 {
     let data = crate::utils::cstring::from_ptr(data_ptr).unwrap();
-    println!("{}", data);
 
     let decoded_data = base64::decode(data);
     let wstring = match decoded_data {
@@ -25,7 +35,6 @@ pub extern "stdcall" fn b64_decode(data_ptr: *const u16) -> *const u16 {
 
     mem::ManuallyDrop::new(wstring).as_ptr()
 }
-
 
 #[no_mangle]
 pub extern "stdcall" fn hex_encode(data_ptr: *const u16) -> *const u16 {
