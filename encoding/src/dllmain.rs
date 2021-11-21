@@ -35,6 +35,7 @@ extern "system" fn DllMain(h_module: HINSTANCE, dw_reason: u32, _: LPVOID) -> BO
     match dw_reason {
         DLL_PROCESS_ATTACH => {
             unsafe {
+                // We don't need to know if PK created new thread
                 DisableThreadLibraryCalls(h_module);
                 if DEBUG {
                     AllocConsole();
