@@ -12,7 +12,7 @@ use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH};
 const AUTHOR: &[u16] = wchz!("_Skill_");
 const VER: &[u16] = wchz!("0.1");
 const DESC: &[u16] = wchz!("Много полезных функций шифрования/хэширования и kdf");
-const DEBUG: bool = false;
+const DEBUG: bool = true;
 
 #[no_mangle]
 pub extern "stdcall" fn info_getAuthor() ->  *const u16 {
