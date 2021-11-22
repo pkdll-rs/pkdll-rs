@@ -21,6 +21,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "block-buffer"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
+dependencies = [
+ "block-padding",
+ "generic-array",
+]
+
+[[package]]
 name = "block-modes"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -67,10 +77,28 @@ dependencies = [
  "aes",
  "base64",
  "block-modes",
+ "digest",
  "hex",
  "libc",
+ "md-5",
+ "md4",
+ "ripemd160",
+ "ripemd256",
+ "ripemd320",
+ "sha-1",
+ "sha2",
+ "sha3",
  "wchar",
  "winapi",
+]
+
+[[package]]
+name = "digest"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
+dependencies = [
+ "generic-array",
 ]
 
 [[package]]
@@ -90,10 +118,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "keccak"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67c21572b4949434e4fc1e1978b99c5f77064153c59d998bf13ecd96fb5ecba7"
+
+[[package]]
 name = "libc"
 version = "0.2.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8521a1b57e76b1ec69af7599e75e38e7b7fad6610f037db8c79b127201b5d119"
+
+[[package]]
+name = "md-5"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5a279bb9607f9f53c22d496eade00d138d1bdcccd07d74650387cf94942a15"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "md4"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd1a7931601ee6a560262a1dc9a8369949f5b7ae20b2bbf029c74fbd6d1b09e2"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
 
 [[package]]
 name = "opaque-debug"
@@ -117,6 +173,77 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38bc8cc6a5f2e3655e0899c1b848643b2562f853f114bfec7be120678e3ace05"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "ripemd160"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eca4ecc81b7f313189bf73ce724400a07da2a6dac19588b03c8bd76a2dcc251"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "ripemd256"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "491bb76de0be1f7dc7caf8098176969be67ed306d6f7495800b5709c1b5b492e"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "ripemd320"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ff9fb4227f99b2078691fbd1bf16edd94041f15b02a3c7b4a155d0074954191"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "sha-1"
+version = "0.9.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99cd6713db3cf16b6c84e06321e049a9b9f699826e16096d23bbcc44d15d51a6"
+dependencies = [
+ "block-buffer",
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "sha2"
+version = "0.9.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b69f9a4c9740d74c5baa3fd2e547f9525fa8088a8a958e0ca2409a514e33f5fa"
+dependencies = [
+ "block-buffer",
+ "cfg-if",
+ "cpufeatures",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "sha3"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f81199417d4e5de3f04b1e871023acea7389672c4135918f05aa9cbf2f2fa809"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "keccak",
+ "opaque-debug",
 ]
 
 [[package]]

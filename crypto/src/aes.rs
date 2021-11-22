@@ -7,8 +7,9 @@ pub use block_modes::{
     Cbc, Ecb, Pcbc,
 };
 
-use crate::utils::aes::{Aes, Len, Mode, Pad};
-use crate::utils::cstring;
+use crate::utils::{cstring, aes::{Aes, Len, Mode, Pad}};
+
+use crate::base64_decode_with_error;
 
 /// inputs, outputs in base64
 #[no_mangle]
@@ -19,35 +20,11 @@ pub extern "stdcall" fn aes_encrypt(data_ptr: *const u16, key_ptr: *const u16, i
     let mode = cstring::from_ptr(mode_ptr).unwrap();
     let padding = cstring::from_ptr(padding_ptr).unwrap();
 
-    let data = match base64::decode(data) {
-        Ok(decoded) => decoded,
-        Err(error) => {
-            let mut err_string = error.to_string();
-            err_string.insert_str(0, crate::ERR);
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        },
-    };
+    let data = base64_decode_with_error!(data);
 
-    let key = match base64::decode(key) {
-        Ok(decoded) => decoded,
-        Err(error) => {
-            let mut err_string = error.to_string();
-            err_string.insert_str(0, crate::ERR);
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        },
-    };
+    let key = base64_decode_with_error!(key);
 
-    let iv = match base64::decode(iv) {
-        Ok(decoded) => decoded,
-        Err(error) => {
-            let mut err_string = error.to_string();
-            err_string.insert_str(0, crate::ERR);
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        },
-    };
+    let iv = base64_decode_with_error!(iv);
 
     let len = match key.len() {
         16 => Len::Aes128,
