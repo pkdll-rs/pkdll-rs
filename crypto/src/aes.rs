@@ -66,7 +66,6 @@ pub extern "stdcall" fn aes_encrypt(data_ptr: *const u16, key_ptr: *const u16, i
     let padding = match padding.as_str() {
         "pkcs7" => Pad::Pkcs7,
         "zero" => Pad::ZeroPadding,
-        "no_padding" => Pad::NoPadding,
         "iso7816" => Pad::Iso7816,
         "ansi_x923" => Pad::AnsiX923,
         _ => {
