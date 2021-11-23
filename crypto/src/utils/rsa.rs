@@ -3,7 +3,7 @@ use md5::Md5;
 use ripemd160::Ripemd160;
 use ripemd256::Ripemd256;
 use ripemd320::Ripemd320;
-use rsa::{BigUint, PaddingScheme, PublicKey, RsaPublicKey, errors, pkcs8::{ToPublicKey, FromPublicKey}};
+use rsa::{BigUint, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey, errors, pkcs1::FromRsaPrivateKey, pkcs8::{ToPublicKey, FromPublicKey, FromPrivateKey}};
 use rand::rngs::OsRng;
 use sha1::Sha1;
 use sha2::*;
@@ -16,6 +16,8 @@ use super::hash::HashError;
 pub enum RsaError {
     #[error("invalid public key")]
     InvalidPublicKey,
+    #[error("invalid private key")]
+    InvalidPrivateKey,
     #[error(transparent)]
     InvalidHashType(#[from] HashError),
     #[error(transparent)]
@@ -41,6 +43,17 @@ pub fn rsa_encrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Stri
     let mut rng = OsRng;
     let encrypted = pub_key.encrypt(&mut rng, padding, &data)?;
     return Ok(base64::encode(encrypted))
+}
+
+pub fn rsa_decrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<String, RsaError> {
+    let priv_key = match RsaPrivateKey::from_pkcs1_pem(key.as_str()) {
+        Ok(priv_key) => priv_key,
+        Err(_) => return Err(RsaError::InvalidPrivateKey),
+    };
+
+    let padding = padding_from_str(hash_type)?;
+    let decrypted = priv_key.decrypt(padding, &data)?;
+    return Ok(String::from_utf8_lossy(&decrypted).to_string())
 }
 
 fn padding_from_str(hash_type: String) -> Result<PaddingScheme, RsaError> {
