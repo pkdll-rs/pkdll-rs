@@ -10,8 +10,8 @@ pub extern "stdcall" fn hash(hash_type: *const u16, data_ptr: *const u16) -> *co
     let data = unwrap_or_err!(base64::decode(data));
     let hash_type = cstring::from_ptr(hash_type).unwrap();
 
-    let hashed = match hash::hash_base64(data, hash_type) {
-        Ok(hashed) => hashed,
+    let hashed = match hash::make_hash(data, &hash_type) {
+        Ok(hashed) => base64::encode(hashed),
         Err(error) => {
             let mut err_string = error.to_string();
             err_string.insert_str(0, crate::ERR);
