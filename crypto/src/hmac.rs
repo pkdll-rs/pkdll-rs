@@ -2,15 +2,17 @@ use std::mem;
 use crate::utils::cstring;
 use crate::utils::hmac;
 
-use crate::base64_decode_with_error;
+use crate::unwrap_or_err;
+
+
 
 #[no_mangle]
 pub extern "stdcall" fn hmac(hash_type: *const u16, data_ptr: *const u16, key_ptr: *const u16) -> *const u16 {
     let data = cstring::from_ptr(data_ptr).unwrap();
-    let data = base64_decode_with_error!(data);
+    let data = unwrap_or_err!(base64::decode(data));
 
     let key = cstring::from_ptr(key_ptr).unwrap();
-    let key = base64_decode_with_error!(key);
+    let key = unwrap_or_err!(base64::decode(key));
 
     let hash_type = cstring::from_ptr(hash_type).unwrap();
 

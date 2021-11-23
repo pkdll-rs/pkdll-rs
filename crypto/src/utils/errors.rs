@@ -1,8 +1,8 @@
 #[macro_export]
-macro_rules! base64_decode_with_error {
+macro_rules! unwrap_or_err {
     ( $e:expr ) => {
-        match base64::decode($e) {
-            Ok(decoded) => decoded,
+        match $e {
+            Ok(result) => result,
             Err(error) => {
                 let mut err_string = error.to_string();
                 err_string.insert_str(0, crate::ERR);

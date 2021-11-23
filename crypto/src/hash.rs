@@ -2,12 +2,12 @@ use std::mem;
 use crate::utils::cstring;
 use crate::utils::hash;
 
-use crate::base64_decode_with_error;
+use crate::unwrap_or_err;
 
 #[no_mangle]
 pub extern "stdcall" fn hash(hash_type: *const u16, data_ptr: *const u16) -> *const u16 {
     let data = cstring::from_ptr(data_ptr).unwrap();
-    let data = base64_decode_with_error!(data);
+    let data = unwrap_or_err!(base64::decode(data));
     let hash_type = cstring::from_ptr(hash_type).unwrap();
 
     let hashed = match hash::hash_base64(data, hash_type) {
