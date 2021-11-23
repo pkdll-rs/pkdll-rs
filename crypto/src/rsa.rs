@@ -32,3 +32,19 @@ pub extern "stdcall" fn rsa_encrypt(data_ptr: *const u16, key_ptr: *const u16, h
     let wstring = cstring::to_widechar(&encrypted);
     return mem::ManuallyDrop::new(wstring).as_ptr();
 }
+
+/// hash_type needed if you want to use oaep mode
+#[no_mangle]
+pub extern "stdcall" fn rsa_decrypt(data_ptr: *const u16, key_ptr: *const u16, hash_type_ptr: *const u16) -> *const u16 {
+    let data = cstring::from_ptr(data_ptr).unwrap();
+    let data = unwrap_or_err!(base64::decode(data));
+    
+    let key = cstring::from_ptr(key_ptr).unwrap();
+
+    let hash_type = cstring::from_ptr(hash_type_ptr).unwrap();
+
+    let decrypted = unwrap_or_err!(rsa::rsa_decrypt(data, key, hash_type));
+
+    let wstring = cstring::to_widechar(&decrypted);
+    return mem::ManuallyDrop::new(wstring).as_ptr();
+}
