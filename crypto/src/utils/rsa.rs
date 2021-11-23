@@ -3,7 +3,7 @@ use md5::Md5;
 use ripemd160::Ripemd160;
 use ripemd256::Ripemd256;
 use ripemd320::Ripemd320;
-use rsa::{BigUint, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey, errors, pkcs1::FromRsaPrivateKey, pkcs8::{ToPublicKey, FromPublicKey, FromPrivateKey}};
+use rsa::{BigUint, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey, errors, pkcs1::{FromRsaPrivateKey, FromRsaPublicKey}, pkcs8::{ToPublicKey, FromPublicKey, FromPrivateKey}};
 use rand::rngs::OsRng;
 use sha1::Sha1;
 use sha2::*;
@@ -34,10 +34,18 @@ pub fn modulus_to_pem(n: Vec<u8>, e: Vec<u8>) -> Result<String, errors::Error> {
 }
 
 pub fn rsa_encrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<String, RsaError> {
-    let pub_key = match RsaPublicKey::from_public_key_pem(key.as_str()) {
-        Ok(pub_key) => pub_key,
-        Err(_) => return Err(RsaError::InvalidPublicKey),
-    };
+    let pub_key: RsaPublicKey;
+    if key.contains("--BEGIN RSA") {
+        pub_key = match RsaPublicKey::from_pkcs1_pem(key.as_str()) {
+            Ok(pub_key) => pub_key,
+            Err(_) => return Err(RsaError::InvalidPublicKey),
+        };
+    } else {
+        pub_key = match RsaPublicKey::from_public_key_pem(key.as_str()) {
+            Ok(pub_key) => pub_key,
+            Err(_) => return Err(RsaError::InvalidPublicKey),
+        };
+    }
 
     let padding = padding_from_str(hash_type)?;
     let mut rng = OsRng;
@@ -46,11 +54,19 @@ pub fn rsa_encrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Stri
 }
 
 pub fn rsa_decrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<String, RsaError> {
-    let priv_key = match RsaPrivateKey::from_pkcs1_pem(key.as_str()) {
-        Ok(priv_key) => priv_key,
-        Err(_) => return Err(RsaError::InvalidPrivateKey),
-    };
-
+    let priv_key: RsaPrivateKey;
+    if key.contains("--BEGIN RSA") {
+        priv_key = match RsaPrivateKey::from_pkcs1_pem(key.as_str()) {
+            Ok(priv_key) => priv_key,
+            Err(_) => return Err(RsaError::InvalidPrivateKey),
+        };
+    } else {
+        priv_key = match RsaPrivateKey::from_pkcs8_pem(key.as_str()) {
+            Ok(priv_key) => priv_key,
+            Err(_) => return Err(RsaError::InvalidPrivateKey),
+        };
+    }
+    
     let padding = padding_from_str(hash_type)?;
     let decrypted = priv_key.decrypt(padding, &data)?;
     return Ok(String::from_utf8_lossy(&decrypted).to_string())
