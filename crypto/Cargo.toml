@@ -20,6 +20,8 @@ sha3 = "^0.9.1"
 ripemd160 = "^0.9.1"
 ripemd256 = "^0.1.0"
 ripemd320 = "^0.9.0"
+hmac = {version = "^0.11.0", features = ["std"]}
+thiserror = "1.0"
 
 [lib]
 crate-type = ["cdylib"]
