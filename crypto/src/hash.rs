@@ -10,12 +10,11 @@ pub extern "stdcall" fn hash(hash_type: *const u16, data_ptr: *const u16) -> *co
     let data = base64_decode_with_error!(data);
     let hash_type = cstring::from_ptr(hash_type).unwrap();
 
-    let hashed = match hash::hash_base64(data, &hash_type) {
-        Some(hashed) => hashed,
-        None => {
-            let mut err_string = String::from("Hash not supported yet: ");
+    let hashed = match hash::hash_base64(data, hash_type) {
+        Ok(hashed) => hashed,
+        Err(error) => {
+            let mut err_string = error.to_string();
             err_string.insert_str(0, crate::ERR);
-            err_string.push_str(&hash_type);
             let wstring = cstring::to_widechar(&err_string);
             return mem::ManuallyDrop::new(wstring).as_ptr();
         }

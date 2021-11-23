@@ -1,4 +1,4 @@
-use digest::{Digest, DynDigest};
+use digest::Digest;
 use sha2::*;
 use sha3::*;
 use md5::Md5;
@@ -8,29 +8,42 @@ use ripemd160::Ripemd160;
 use ripemd256::Ripemd256;
 use ripemd320::Ripemd320;
 
-pub fn hash_base64(data: Vec<u8>, hash_type: &str) -> Option<String> {
-    let mut hasher: Box<dyn DynDigest> = match hash_type {
-        "md5" => Box::new(Md5::new()),
-        "md4" => Box::new(Md4::new()),
-        "sha1" => Box::new(Sha1::new()),
-        "sha224" => Box::new(Sha224::new()),
-        "sha256" => Box::new(Sha256::new()),
-        "sha384" => Box::new(Sha384::new()),
-        "sha512" => Box::new(Sha512::new()),
-        "sha3-224" => Box::new(Sha3_224::new()),
-        "sha3-256" => Box::new(Sha3_256::new()),
-        "sha3-384" => Box::new(Sha3_384::new()),
-        "sha3-512" => Box::new(Sha3_512::new()),
-        "keccak224" => Box::new(Keccak224::new()),
-        "keccak256" => Box::new(Keccak256::new()),
-        "keccak384" => Box::new(Keccak384::new()),
-        "keccak512" => Box::new(Keccak512::new()),
-        "ripemd160" => Box::new(Ripemd160::new()),
-        "ripemd256" => Box::new(Ripemd256::new()),
-        "ripemd320" => Box::new(Ripemd320::new()),
-        _ => return None
-    };
+use thiserror::Error;
 
+#[derive(Error, Debug)]
+pub enum HashError {
+    #[error("hash type unsupported yet: `{0}`")]
+    InvalidHashType(String),
+}
+
+fn _hash<D: Digest>(data: Vec<u8>) -> Result<Vec<u8>, HashError>{
+    let mut hasher = <D>::new();
     hasher.update(&data);
-    Some(base64::encode(hasher.finalize()))
+    Ok(hasher.finalize().to_vec())
+}
+
+pub fn hash_base64(data: Vec<u8>, hash_type: String) -> Result<String, HashError> {
+    let hashed = match hash_type.as_str() {
+        "md5" => _hash::<Md5>(data),
+        "md4" => _hash::<Md4>(data),
+        "sha1" =>_hash::<Sha1>(data),
+        "sha224" =>_hash::<Sha224>(data),
+        "sha256" =>_hash::<Sha256>(data),
+        "sha384" =>_hash::<Sha384>(data),
+        "sha512" =>_hash::<Sha512>(data),
+        "sha3-224" => _hash::<Sha3_224>(data),
+        "sha3-256" => _hash::<Sha3_256>(data),
+        "sha3-384" => _hash::<Sha3_384>(data),
+        "sha3-512" => _hash::<Sha3_512>(data),
+        "keccak224" => _hash::<Keccak224>(data),
+        "keccak256" => _hash::<Keccak256>(data),
+        "keccak384" => _hash::<Keccak384>(data),
+        "keccak512" => _hash::<Keccak512>(data),
+        "ripemd160" => _hash::<Ripemd160>(data),
+        "ripemd256" => _hash::<Ripemd256>(data),
+        "ripemd320" => _hash::<Ripemd320>(data),
+        _ => return Err(HashError::InvalidHashType(hash_type))
+    }?;
+
+    Ok(base64::encode(hashed))
 }
