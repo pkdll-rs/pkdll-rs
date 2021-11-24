@@ -14,11 +14,8 @@ pub extern "stdcall" fn aes_encrypt(data_ptr: *const u16, key_ptr: *const u16, i
     let padding = cstring::from_ptr(padding_ptr).unwrap();
 
     let data = unwrap_or_err!(base64::decode(data));
-
     let key = unwrap_or_err!(base64::decode(key));
-
     let iv = unwrap_or_err!(base64::decode(iv));
-
     let encrypted = unwrap_or_err!(aes::aes_encrypt(data, key, iv, mode, padding));
 
     cstring::to_widechar(&encrypted).as_ptr()
@@ -34,11 +31,8 @@ pub extern "stdcall" fn aes_decrypt(data_ptr: *const u16, key_ptr: *const u16, i
     let padding = cstring::from_ptr(padding_ptr).unwrap();
 
     let data = unwrap_or_err!(base64::decode(data));
-
     let key = unwrap_or_err!(base64::decode(key));
-
     let iv = unwrap_or_err!(base64::decode(iv));
-
     let decrypted = unwrap_or_err!(aes::aes_decrypt(data, key, iv, mode, padding));
 
     cstring::to_widechar(String::from_utf8_lossy(&decrypted).as_ref()).as_ptr()

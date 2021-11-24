@@ -2,6 +2,8 @@ mod aes;
 mod hash;
 mod hmac;
 mod rsa;
+mod kdf;
+mod random;
 mod dllmain;
 
 mod utils {
@@ -11,6 +13,8 @@ mod utils {
     pub mod hash;
     pub mod hmac;
     pub mod rsa;
+    pub mod bcrypt;
+    pub mod random;
 }
 
 pub use crate::{
