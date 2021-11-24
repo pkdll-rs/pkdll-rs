@@ -1,14 +1,7 @@
 use std::mem;
 use base64;
 
-pub use aes::{Aes128, Aes192, Aes256};
-pub use block_modes::{
-    block_padding::{AnsiX923, Iso7816, NoPadding, Pkcs7, ZeroPadding},
-    Cbc, Ecb, Pcbc,
-};
-
-use crate::utils::{cstring, aes::{Aes, Len, Mode, Pad}};
-
+use crate::utils::{cstring, aes};
 use crate::unwrap_or_err;
 
 /// inputs, outputs in base64
@@ -26,48 +19,9 @@ pub extern "stdcall" fn aes_encrypt(data_ptr: *const u16, key_ptr: *const u16, i
 
     let iv = unwrap_or_err!(base64::decode(iv));
 
-    let len = match key.len() {
-        16 => Len::Aes128,
-        24 => Len::Aes192,
-        32 => Len::Aes256,
-        _ => {
-            let mut err_string = String::from(format!("unsupported key len: {}. Only 16, 24, 32 bytes", key.len()));
-            err_string.insert_str(0, crate::ERR);
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        }
-    };
+    let encrypted = unwrap_or_err!(aes::aes_encrypt(data, key, iv, mode, padding));
 
-    let padding = match padding.as_str() {
-        "pkcs7" => Pad::Pkcs7,
-        "zero" => Pad::ZeroPadding,
-        "iso7816" => Pad::Iso7816,
-        "ansi_x923" => Pad::AnsiX923,
-        _ => {
-            let mut err_string = String::from("unsupported pad type: ");
-            err_string.insert_str(0, crate::ERR);
-            err_string.push_str(padding.as_str());
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        }
-    };
-
-    let mode = match mode.as_str() {
-        "ecb" => Mode::Ecb,
-        "cbc" => Mode::Cbc,
-        _ => {
-            let mut err_string = String::from("unsupported mode: ");
-            err_string.insert_str(0, crate::ERR);
-            err_string.push_str(mode.as_str());
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        }
-    };
-    
-    let cipher = Aes::new(len, mode, padding);
-    let encrypted = unwrap_or_err!(cipher.encrypt(key, iv, data));
-
-    cstring::to_widechar(base64::encode(encrypted).as_str()).as_ptr()
+    cstring::to_widechar(&encrypted).as_ptr()
 }
 
 /// inputs, outputs in base64
@@ -85,46 +39,7 @@ pub extern "stdcall" fn aes_decrypt(data_ptr: *const u16, key_ptr: *const u16, i
 
     let iv = unwrap_or_err!(base64::decode(iv));
 
-    let len = match key.len() {
-        16 => Len::Aes128,
-        24 => Len::Aes192,
-        32 => Len::Aes256,
-        _ => {
-            let mut err_string = String::from(format!("unsupported key len: {}. Only 16, 24, 32 bytes", key.len()));
-            err_string.insert_str(0, crate::ERR);
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        }
-    };
+    let decrypted = unwrap_or_err!(aes::aes_decrypt(data, key, iv, mode, padding));
 
-    let padding = match padding.as_str() {
-        "pkcs7" => Pad::Pkcs7,
-        "zero" => Pad::ZeroPadding,
-        "iso7816" => Pad::Iso7816,
-        "ansi_x923" => Pad::AnsiX923,
-        _ => {
-            let mut err_string = String::from("unsupported pad type: ");
-            err_string.insert_str(0, crate::ERR);
-            err_string.push_str(padding.as_str());
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        }
-    };
-
-    let mode = match mode.as_str() {
-        "ecb" => Mode::Ecb,
-        "cbc" => Mode::Cbc,
-        _ => {
-            let mut err_string = String::from("unsupported mode: ");
-            err_string.insert_str(0, crate::ERR);
-            err_string.push_str(mode.as_str());
-            let wstring = cstring::to_widechar(&err_string);
-            return mem::ManuallyDrop::new(wstring).as_ptr();
-        }
-    };
-    
-    let cipher = Aes::new(len, mode, padding);
-    let decrypted = unwrap_or_err!(cipher.decrypt(key, iv, data));
-
-    cstring::to_widechar(String::from_utf8_lossy(&decrypted).to_string().as_str()).as_ptr()
+    cstring::to_widechar(String::from_utf8_lossy(&decrypted).as_ref()).as_ptr()
 }

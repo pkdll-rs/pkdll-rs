@@ -4,7 +4,7 @@ pub use std::ffi::OsString;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::ffi::OsStringExt;
 
-pub fn to_widechar(s: &str) -> Vec<u16> {
+pub fn to_widechar<S: AsRef<OsStr> + ?Sized>(s: &S)-> Vec<u16> {
     OsStr::new(s).encode_wide().chain(once(0)).collect()
 }
 
