@@ -13,7 +13,7 @@ mod utils {
     pub mod hash;
     pub mod hmac;
     pub mod rsa;
-    pub mod bcrypt;
+    pub mod kdf;
     pub mod random;
 }
 
