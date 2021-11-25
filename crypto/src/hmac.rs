@@ -16,7 +16,7 @@ pub extern "stdcall" fn hmac(hash_type: *const u16, data_ptr: *const u16, key_pt
 
     let hash_type = cstring::from_ptr(hash_type).unwrap();
 
-    let hashed = unwrap_or_err!(hmac::hmac_base64(data, key, hash_type));
+    let hashed = unwrap_or_err!(hmac::make_hmac(data, key, hash_type));
 
-    mem::ManuallyDrop::new(cstring::to_widechar(&hashed)).as_ptr()
+    mem::ManuallyDrop::new(cstring::to_widechar(&base64::encode(hashed))).as_ptr()
 }

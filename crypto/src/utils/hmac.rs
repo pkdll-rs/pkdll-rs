@@ -20,8 +20,8 @@ fn hmac<F: Mac + NewMac + Sync>(data: Vec<u8>, key: Vec<u8>) -> Result<Vec<u8>, 
     Ok(hasher.finalize().into_bytes().as_slice().to_vec())
 }
 
-pub fn hmac_base64(data: Vec<u8>, key: Vec<u8>, hash_type: String) -> Result<String, Box<dyn Error>> {
+pub fn make_hmac(data: Vec<u8>, key: Vec<u8>, hash_type: String) -> Result<Vec<u8>, Box<dyn Error>> {
     let hashed = switch_hmac_trait!(hmac, hash_type.as_str(), , data, key)?;
 
-    Ok(base64::encode(hashed))
+    Ok(hashed)
 }
