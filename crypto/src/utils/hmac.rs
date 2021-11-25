@@ -8,7 +8,6 @@ use sha1::Sha1;
 use ripemd160::Ripemd160;
 use ripemd256::Ripemd256;
 use ripemd320::Ripemd320;
-use digest::*;
 
 use hmac::{Hmac, Mac, NewMac, crypto_mac::InvalidKeyLength};
 

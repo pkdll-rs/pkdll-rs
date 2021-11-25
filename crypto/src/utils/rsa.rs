@@ -15,7 +15,6 @@ use sha3::*;
 use thiserror::Error;
 
 use super::hash::{HashError, make_hash};
-use crate::switch_hash_trait;
 
 #[derive(Error, Debug)]
 pub enum RsaError {
