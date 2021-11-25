@@ -52,9 +52,30 @@ pub extern "stdcall" fn scrypt(data_ptr: *const u16, log_n_ptr: *const u16, r_pt
     let len = unwrap_or_err!(len.parse::<usize>());
 
     let salt = cstring::from_ptr(salt_ptr).unwrap();
-    let salt = salt.trim_end_matches("=");
+    let salt = unwrap_or_err!(base64::decode(salt));
 
     let hashed = unwrap_or_err!(kdf::scrypt(data, log_n, r, p, len, salt));
+
+    mem::ManuallyDrop::new(cstring::to_widechar(&hashed)).as_ptr()
+}
+
+#[no_mangle]
+pub extern "stdcall" fn pbkdf2(data_ptr: *const u16, salt_ptr: *const u16, rounds_ptr: *const u16, len_ptr: *const u16, hash_type_ptr: *const u16) -> *const u16 {
+    let data = cstring::from_ptr(data_ptr).unwrap();
+    let data = unwrap_or_err!(base64::decode(data));
+
+    let salt = cstring::from_ptr(salt_ptr).unwrap();
+    let salt = unwrap_or_err!(base64::decode(salt));
+
+    let rounds = cstring::from_ptr(rounds_ptr).unwrap();
+    let rounds = unwrap_or_err!(rounds.parse::<u32>());
+
+    let len = cstring::from_ptr(len_ptr).unwrap();
+    let len = unwrap_or_err!(len.parse::<usize>());
+
+    let hash_type = cstring::from_ptr(hash_type_ptr).unwrap();
+
+    let hashed = unwrap_or_err!(kdf::pbkdf2(data, salt, rounds, len, hash_type));
 
     mem::ManuallyDrop::new(cstring::to_widechar(&hashed)).as_ptr()
 }

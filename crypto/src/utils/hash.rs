@@ -1,14 +1,16 @@
 use digest::Digest;
-use sha2::*;
-use sha3::*;
-use md5::Md5;
-use md4::Md4;
-use sha1::Sha1;
-use ripemd160::Ripemd160;
-use ripemd256::Ripemd256;
-use ripemd320::Ripemd320;
+pub use sha2::*;
+pub use sha3::*;
+pub use md5::Md5;
+pub use md4::Md4;
+pub use sha1::Sha1;
+pub use ripemd160::Ripemd160;
+pub use ripemd256::Ripemd256;
+pub use ripemd320::Ripemd320;
 
 use thiserror::Error;
+
+use crate::switch_hash_trait;
 
 #[derive(Error, Debug)]
 pub enum HashError {
@@ -16,34 +18,13 @@ pub enum HashError {
     InvalidHashType(String),
 }
 
-fn _hash<D: Digest>(data: Vec<u8>) -> Result<Vec<u8>, HashError>{
+fn _hash<D: Digest + Sync>(data: Vec<u8>) -> Result<Vec<u8>, HashError>{
     let mut hasher = <D>::new();
     hasher.update(&data);
     Ok(hasher.finalize().to_vec())
 }
 
 pub fn make_hash(data: Vec<u8>, hash_type: &str) -> Result<Vec<u8>, HashError> {
-    let hashed = match hash_type {
-        "md5" => _hash::<Md5>(data),
-        "md4" => _hash::<Md4>(data),
-        "sha1" => _hash::<Sha1>(data),
-        "sha224" => _hash::<Sha224>(data),
-        "sha256" => _hash::<Sha256>(data),
-        "sha384" => _hash::<Sha384>(data),
-        "sha512" => _hash::<Sha512>(data),
-        "sha3-224" => _hash::<Sha3_224>(data),
-        "sha3-256" => _hash::<Sha3_256>(data),
-        "sha3-384" => _hash::<Sha3_384>(data),
-        "sha3-512" => _hash::<Sha3_512>(data),
-        "keccak224" => _hash::<Keccak224>(data),
-        "keccak256" => _hash::<Keccak256>(data),
-        "keccak384" => _hash::<Keccak384>(data),
-        "keccak512" => _hash::<Keccak512>(data),
-        "ripemd160" => _hash::<Ripemd160>(data),
-        "ripemd256" => _hash::<Ripemd256>(data),
-        "ripemd320" => _hash::<Ripemd320>(data),
-        _ => return Err(HashError::InvalidHashType(hash_type.to_string()))
-    }?;
-
+    let hashed = switch_hash_trait!(_hash, hash_type, , data)?;
     Ok(hashed)
 }

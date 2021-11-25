@@ -136,6 +136,7 @@ dependencies = [
  "libc",
  "md-5",
  "md4",
+ "pbkdf2",
  "rand",
  "ripemd160",
  "ripemd256",
@@ -345,9 +346,14 @@ dependencies = [
 [[package]]
 name = "pbkdf2"
 version = "0.9.0"
-source = "git+https://github.com/Numenorean/password-hashes#cc549f71c1424c386374b773418569454e780935"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f05894bce6a1ba4be299d0c5f29563e08af2bc18bb7d48313113bed71e904739"
 dependencies = [
  "crypto-mac",
+ "hmac",
+ "password-hash",
+ "sha-1",
+ "sha2",
 ]
 
 [[package]]
@@ -502,9 +508,9 @@ dependencies = [
 
 [[package]]
 name = "salsa20"
-version = "0.9.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c0fbb5f676da676c260ba276a8f43a8dc67cf02d1438423aeb1c677a7212686"
+checksum = "ecbd2eb639fd7cab5804a0837fe373cc2172d15437e804c054a9fb885cb923b0"
 dependencies = [
  "cipher",
 ]
@@ -512,7 +518,8 @@ dependencies = [
 [[package]]
 name = "scrypt"
 version = "0.8.0"
-source = "git+https://github.com/Numenorean/password-hashes#cc549f71c1424c386374b773418569454e780935"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f2cc535b6997b0c755bf9344e71ca0e1be070d07ff792f1fcd31e7b90e07d5f"
 dependencies = [
  "hmac",
  "password-hash",

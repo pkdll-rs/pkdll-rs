@@ -3,7 +3,11 @@ use md5::Md5;
 use ripemd160::Ripemd160;
 use ripemd256::Ripemd256;
 use ripemd320::Ripemd320;
-use rsa::{BigUint, Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey, errors, pkcs1::{FromRsaPrivateKey, FromRsaPublicKey}, pkcs8::{ToPublicKey, FromPublicKey, FromPrivateKey}};
+use rsa::{
+    BigUint, Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey, errors,
+    pkcs1::{FromRsaPrivateKey, FromRsaPublicKey},
+    pkcs8::{ToPublicKey, FromPublicKey, FromPrivateKey},
+};
 use rand::rngs::OsRng;
 use sha1::Sha1;
 use sha2::*;
@@ -11,6 +15,7 @@ use sha3::*;
 use thiserror::Error;
 
 use super::hash::{HashError, make_hash};
+use crate::switch_hash_trait;
 
 #[derive(Error, Debug)]
 pub enum RsaError {
@@ -147,6 +152,7 @@ fn sign_padding_from_str(hash_type: String, mode: String) -> Result<PaddingSchem
 
         "pss" => {
             let rng = OsRng;
+            // don't know how to implement with switch_hash_trait
             match hash_type.as_str() {
                 "md5" => PaddingScheme::new_pss::<Md5, OsRng>(rng),
                 "md4" => PaddingScheme::new_pss::<Md4, OsRng>(rng),
