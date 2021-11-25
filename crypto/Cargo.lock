@@ -130,6 +130,8 @@ dependencies = [
  "base64",
  "bcrypt",
  "block-modes",
+ "blowfish",
+ "byteorder",
  "digest",
  "hex",
  "hmac",
