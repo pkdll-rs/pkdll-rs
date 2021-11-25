@@ -242,3 +242,6 @@ Hmac
 ```
 
 </details>
+
+## Скачать здесь
+https://github.com/Numenorean/pkdll-rs/raw/main/crypto/target/i686-pc-windows-msvc/release/crypto.dll
