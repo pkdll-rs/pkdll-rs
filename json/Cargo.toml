@@ -1,0 +1,16 @@
+[package]
+name = "json"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+wchar = "^0.11"
+winapi = { version = "^0.3.7", features = ["consoleapi", "libloaderapi"] }
+libc = "^0.2.107"
+gjson = "^0.8.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+panic = 'abort'
