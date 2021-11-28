@@ -6,18 +6,11 @@ version = 3
 name = "array"
 version = "0.0.1"
 dependencies = [
- "gjson",
  "libc",
  "serde_json",
  "wchar",
  "winapi",
 ]
-
-[[package]]
-name = "gjson"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4599d0e9dce476280e2da1f334811e2b26d63a6b000e13b7b50cc980bae49698"
 
 [[package]]
 name = "itoa"

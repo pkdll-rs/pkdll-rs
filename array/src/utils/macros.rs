@@ -12,3 +12,10 @@ macro_rules! unwrap_or_err {
         }
     }
 }
+
+#[macro_export]
+macro_rules! string_to_ptr {
+    ( $e:expr ) => {
+        mem::ManuallyDrop::new(cstring::to_widechar($e)).as_ptr()
+    }
+}

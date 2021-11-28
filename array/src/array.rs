@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::{unwrap_or_err, utils::{array::array_as_json, cstring}};
+use crate::{string_to_ptr, unwrap_or_err, utils::{array::array_as_json, cstring}};
 use serde_json::Value;
 
 #[no_mangle]
@@ -9,7 +9,7 @@ pub extern "stdcall" fn from_list(list_ptr: *const u16) -> *const u16 {
     let splitted: Vec<&str> = list.split("\r\n").collect();
     let json = array_as_json( splitted);
 
-    mem::ManuallyDrop::new(cstring::to_widechar(&json)).as_ptr()
+    string_to_ptr!(&json)
 }
 
 #[no_mangle]
@@ -23,5 +23,5 @@ pub extern "stdcall" fn to_list(array_ptr: *const u16) -> *const u16 {
                         .collect::<Vec<&str>>()
                         .join("\r\n");
 
-    mem::ManuallyDrop::new(cstring::to_widechar(&list)).as_ptr()
+    string_to_ptr!(&list)
 }
