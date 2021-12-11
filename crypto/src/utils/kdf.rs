@@ -19,14 +19,7 @@ pub fn scrypt(data: Vec<u8>, log_n: u8, r: u32, p: u32, len: usize, salt: Vec<u8
     _scrypt::scrypt(&data, &salt, &params, &mut output)?;
 
     Ok(
-        format!(
-            "$scrypt$ln={},r={},p={}${}${}",
-            len,
-            r,
-            p,
-            base64::encode_config(salt, base64::STANDARD_NO_PAD),
-            base64::encode_config(output, base64::STANDARD_NO_PAD)
-        )
+        base64::encode_config(output, base64::STANDARD),
     )
 }
 
@@ -35,12 +28,6 @@ pub fn pbkdf2(data: Vec<u8>, salt: Vec<u8>, rounds: u32, key_length: usize, hash
     switch_hmac_trait!(_pbkdf2, hash_type.as_str(), , &data, &salt, rounds, &mut output);
 
     Ok(
-        format!(
-            "$pbkdf2-{}$i={}${}${}",
-            hash_type,
-            rounds,
-            base64::encode_config(salt, base64::STANDARD_NO_PAD),
-            base64::encode_config(output, base64::STANDARD_NO_PAD)
-        )
+        base64::encode_config(output, base64::STANDARD),
     )
 }
