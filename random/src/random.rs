@@ -71,3 +71,24 @@ pub extern "stdcall" fn uuidv4() -> *const u16 {
 
     string_to_ptr!(&uuid)
 }
+
+#[no_mangle]
+pub extern "stdcall" fn fill_with(string_ptr: *const u16, fill_string_ptr: *const u16, num_ptr: *const u16, index_ptr: *const u16) -> *const u16 {
+    let mut string = cstring::from_ptr(string_ptr).unwrap();
+    let fill_string = cstring::from_ptr(fill_string_ptr).unwrap();
+
+    let num = unwrap_or_err!(cstring::from_ptr(num_ptr)
+                        .unwrap()
+                        .parse::<usize>());
+
+    let index = cstring::from_ptr(index_ptr).unwrap().parse::<usize>().unwrap_or_default();
+    if string.len() > num || index > string.len() {
+        return string_to_ptr!(&string);
+    }
+    string.insert_str(index, fill_string
+                                    .repeat(num-string.len())
+                                    .as_str()
+    );
+
+    string_to_ptr!(&string)
+}
