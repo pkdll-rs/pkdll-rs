@@ -43,7 +43,7 @@ pub extern "stdcall" fn choice(array_ptr: *const u16) -> *const u16 {
 
     let mut rng  = thread_rng();
 
-    string_to_ptr!(array[rng.gen_range(0..array.len())].as_str().unwrap_or_default())
+    string_to_ptr!(&array[rng.gen_range(0..array.len())].to_string())
 }
 
 #[no_mangle]
