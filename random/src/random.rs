@@ -54,20 +54,10 @@ pub extern "stdcall" fn range(from_ptr: *const u16, to_ptr: *const u16) -> *cons
     let to = unwrap_or_err!(cstring::from_ptr(to_ptr)
                         .parse::<i64>());
 
-    match from.cmp(&to) {
-        Ordering::Less => {
-            let mut err = String::from(ERR);
-            err.push_str("`from` can't be larger than `to`");
-            return string_to_ptr!(&err);
-        }
-
-        Ordering::Equal => {
-            let mut err = String::from(ERR);
-            err.push_str("`from` cant't be the same as `to`");
-            return string_to_ptr!(&err);
-        }
-
-        _ => {}
+    if from > to || from == to {
+        let mut err = String::from(ERR);
+        err.push_str("`from` must be larger than `to`");
+        return string_to_ptr!(&err);
     }
 
     let mut rng  = thread_rng();
