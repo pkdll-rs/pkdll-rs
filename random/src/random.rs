@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::mem;
 use rand::prelude::SliceRandom;
 use rand::{Rng, thread_rng};
