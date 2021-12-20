@@ -38,7 +38,8 @@
 |DV|[aes_key] = Ju1DB7Dfa5Wjtbp3CTSQmS2PbgjMmarq2BZWCWFwPuY=
 |DV|[aes_iv] = wsr+7AkmUy9j30UjIQV6Xw==
 |DV|[encrypted] = (|DLL|dllName:crypto;funcName:aes_encrypt;params:|DV|[data]|PDEL||DV|[aes_key]|PDEL||DV|[aes_iv]|PDEL|cbc|PDEL|pkcs7;|DLL|)
-|DV|[decrypted] = (|DLL|dllName:crypto;funcName:aes_decrypt;params:|DV|[encrypted]|PDEL||DV|[aes_key]|PDEL||DV|[aes_iv]|PDEL|cbc|PDEL|pkcs7;|DLL|)
+|DV|[decrypted_base64] = (|DLL|dllName:crypto;funcName:aes_decrypt;params:|DV|[encrypted]|PDEL||DV|[aes_key]|PDEL||DV|[aes_iv]|PDEL|cbc|PDEL|pkcs7;|DLL|)
+|DV|[decrypted] = (|DLL|dllName:encoding;funcName:b64_decode;params:|DV|[decrypted_base64];|DLL|)
 ```
 
 </details>
@@ -95,7 +96,8 @@ UZAVKtJO1eDB7pY2Bb0CQQCU74lVEuqWZbG8dPYW6KVDvG3aqD1hslZGr+0YFQNb
 xPOWMpx0oEFvdZQfKcvH31v8hAqgtyr/EwKu/wtiiDnW
 -----END RSA PRIVATE KEY-----
 #endScript
-|DV|[decrypted] = (|DLL|dllName:crypto;funcName:rsa_decrypt;params:|DV|[encrypted]|PDEL||DV|[priv_pem]|PDEL|sha384;|DLL|)
+|DV|[decrypted_base64] = (|DLL|dllName:crypto;funcName:rsa_decrypt;params:|DV|[encrypted]|PDEL||DV|[priv_pem]|PDEL|sha384;|DLL|)
+|DV|[decrypted] = (|DLL|dllName:encoding;funcName:b64_decode;params:|DV|[decrypted_base64];|DLL|)
 
 ******************
 RSA Sign
@@ -216,7 +218,8 @@ Hmac
 |DV|[blowfish_key] = Ld0Ydw/qj0k=
 |DV|[blowfish_iv] = djFUivAKUUs=
 |DV|[encrypted] = (|DLL|dllName:crypto;funcName:blowfish_encrypt;params:|DV|[data]|PDEL||DV|[blowfish_key]|PDEL||DV|[blowfish_iv]|PDEL|cbc|PDEL|pkcs7;|DLL|)
-|DV|[decrypted] = (|DLL|dllName:crypto;funcName:blowfish_decrypt;params:|DV|[encrypted]|PDEL||DV|[blowfish_key]|PDEL||DV|[blowfish_iv]|PDEL|cbc|PDEL|pkcs7;|DLL|)
+|DV|[decrypted_base64] = (|DLL|dllName:crypto;funcName:blowfish_decrypt;params:|DV|[encrypted]|PDEL||DV|[blowfish_key]|PDEL||DV|[blowfish_iv]|PDEL|cbc|PDEL|pkcs7;|DLL|)
+|DV|[decrypted] = (|DLL|dllName:encoding;funcName:b64_decode;params:|DV|[decrypted_base64];|DLL|)
 ```
 
 </details>
