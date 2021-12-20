@@ -6,8 +6,7 @@ macro_rules! unwrap_or_err {
             Err(error) => {
                 let mut err_string = error.to_string();
                 err_string.insert_str(0, crate::ERR);
-                let wstring = cstring::to_widechar(&err_string);
-                return mem::ManuallyDrop::new(wstring).as_ptr();
+                return cstring::to_widechar_ptr(&err_string);
             },
         }
     }

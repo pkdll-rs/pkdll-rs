@@ -39,7 +39,7 @@ pub fn modulus_to_pem(n: Vec<u8>, e: Vec<u8>) -> Result<String, errors::Error> {
     return Ok(pub_key)
 }
 
-pub fn rsa_encrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<String, RsaError> {
+pub fn rsa_encrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Vec<u8>, RsaError> {
     let pub_key: RsaPublicKey;
     if key.contains("--BEGIN RSA") {
         pub_key = match RsaPublicKey::from_pkcs1_pem(key.as_str()) {
@@ -56,10 +56,10 @@ pub fn rsa_encrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Stri
     let padding = padding_from_str(hash_type)?;
     let mut rng = OsRng;
     let encrypted = pub_key.encrypt(&mut rng, padding, &data)?;
-    return Ok(base64::encode(encrypted))
+    return Ok(encrypted)
 }
 
-pub fn rsa_decrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<String, RsaError> {
+pub fn rsa_decrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Vec<u8>, RsaError> {
     let priv_key: RsaPrivateKey;
     if key.contains("--BEGIN RSA") {
         priv_key = match RsaPrivateKey::from_pkcs1_pem(key.as_str()) {
@@ -75,10 +75,10 @@ pub fn rsa_decrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Stri
     
     let padding = padding_from_str(hash_type)?;
     let decrypted = priv_key.decrypt(padding, &data)?;
-    return Ok(String::from_utf8_lossy(&decrypted).to_string())
+    return Ok(decrypted)
 }
 
-pub fn rsa_sign(data: Vec<u8>, key: String, hash_type: String, mode: String) -> Result<String, RsaError> {
+pub fn rsa_sign(data: Vec<u8>, key: String, hash_type: String, mode: String) -> Result<Vec<u8>, RsaError> {
     let priv_key: RsaPrivateKey;
     if key.contains("--BEGIN RSA") {
         priv_key = match RsaPrivateKey::from_pkcs1_pem(key.as_str()) {
@@ -96,7 +96,7 @@ pub fn rsa_sign(data: Vec<u8>, key: String, hash_type: String, mode: String) -> 
 
     let padding = sign_padding_from_str(hash_type, mode)?;
     let signed = priv_key.sign(padding, &hashed_data)?;
-    return Ok(base64::encode(signed))
+    return Ok(signed)
 }
 
 fn padding_from_str(hash_type: String) -> Result<PaddingScheme, RsaError> {

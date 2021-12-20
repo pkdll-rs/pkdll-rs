@@ -265,7 +265,7 @@ dependencies = [
 
 [[package]]
 name = "crypto"
-version = "0.0.1"
+version = "0.0.3"
 dependencies = [
  "aes",
  "base64",

@@ -1,4 +1,4 @@
-use std::mem;
+use winapi::um::winnt::PWSTR;
 
 use crate::utils::cstring;
 use crate::utils::random;
@@ -6,11 +6,11 @@ use crate::utils::random;
 use crate::unwrap_or_err;
 
 #[no_mangle]
-pub extern "stdcall" fn random_bytes(len_ptr: *const u16) -> *const u16 {
-    let len = cstring::from_ptr(len_ptr).unwrap();
+pub extern "stdcall" fn random_bytes(len_ptr: PWSTR) -> PWSTR {
+    let len = cstring::from_ptr(len_ptr);
     let len = unwrap_or_err!(len.parse::<usize>());
 
     let hashed = random::random_bytes(len);
 
-    mem::ManuallyDrop::new(cstring::to_widechar(&base64::encode(hashed))).as_ptr()
+    cstring::to_widechar_ptr(&base64::encode(hashed))
 }
