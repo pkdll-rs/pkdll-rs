@@ -25,3 +25,6 @@ pub use crate::{
 };
 
 pub const ERR: &str = "ERR|";
+
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;

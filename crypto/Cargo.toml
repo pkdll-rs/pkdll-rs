@@ -29,9 +29,21 @@ scrypt = "^0.8.0"
 pbkdf2 = {version = "^0.9.0", features = ["simple", "sha1"]}
 blowfish = "^0.8.0"
 byteorder = "^1.4.3"
+mimalloc = { version = "0.1.17" }
+
+[dev-dependencies]
+criterion = "0.3"
+libloading = "0.7.2"
+timeit = "0.1.2"
+
+[[bench]]
+name = "hash_benchmark"
+harness = false
 
 [lib]
 crate-type = ["cdylib"]
 
 [profile.release]
+lto = "fat"
+codegen-units = 1
 panic = 'abort'
