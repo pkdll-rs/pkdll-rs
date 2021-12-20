@@ -12,7 +12,7 @@ pub fn to_widechar_ptr<S: AsRef<OsStr> + ?Sized>(s: &S)-> PWSTR {
     mem::ManuallyDrop::new(wstring).as_ptr() as PWSTR
 }
 
-pub fn from_ptr(data_ptr: *const u16) -> String {
+pub fn from_widechar_ptr(data_ptr: PWSTR) -> String {
     unsafe {
         let len = (0..).take_while(|&i| *data_ptr.offset(i)!=0).count();
         let slice = std::slice::from_raw_parts(data_ptr, len);
