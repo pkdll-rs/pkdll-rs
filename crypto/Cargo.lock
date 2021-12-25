@@ -15,6 +15,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arc4"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c23cd09ec21d3f6b62f9b1fb495e43d09dc1d125aab8f51c0b0dc43eaa349347"
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -268,6 +274,7 @@ name = "crypto"
 version = "0.0.3"
 dependencies = [
  "aes",
+ "arc4",
  "base64",
  "bcrypt",
  "block-modes",

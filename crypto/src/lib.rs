@@ -6,6 +6,7 @@ mod kdf;
 mod random;
 mod blowfish;
 mod xor;
+mod rc4;
 mod dllmain;
 
 mod utils {
