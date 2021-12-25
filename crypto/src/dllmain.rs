@@ -43,8 +43,10 @@ extern "system" fn DllMain(h_module: HINSTANCE, dw_reason: u32, _: LPVOID) -> BO
             }
         }
         DLL_PROCESS_DETACH => {
-            unsafe {
-                FreeConsole();
+            if DEBUG {
+                unsafe {
+                    FreeConsole();
+                }
             }
         }
         _ => {}
