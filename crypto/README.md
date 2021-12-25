@@ -245,7 +245,7 @@ Hmac
 
 </details>
 
-<details><summary>КС4</summary>
+<details><summary>RC4</summary>
 
 ```
 ******************
