@@ -1,15 +1,13 @@
-pub fn xor_simple(data: Vec<u8>, key: u32) -> Vec<u8> {
-    unsafe {
-        data.iter()
-            .map(|&c| c as u32  ^ key)
-            .map(|x| char::from_u32_unchecked(x) as u8)
-            .collect()
+pub fn xor_simple(data: &mut [u8], key: u32) {
+    for char in data {
+        unsafe {
+            *char = char::from_u32_unchecked(*char as u32 ^ key) as u8;
+        }
     }
 }
 
-pub fn xor(data: Vec<u8>, key: Vec<u8>) -> Vec<u8> {
-    data.iter()
-        .enumerate()
-        .map(|(i, &c)| c ^ key[i%key.len()])
-        .collect()
+pub fn xor(data: &mut [u8], key: Vec<u8>) {
+    for i in 0..data.len() {
+        data[i] = data[i] ^ key[i%key.len()];
+    }
 }

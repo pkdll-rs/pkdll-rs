@@ -10,7 +10,7 @@ use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH};
 
 
 const AUTHOR: &[u16] = wchz!("_Skill_");
-const VER: &[u16] = wchz!("0.3");
+const VER: &[u16] = wchz!("0.4");
 const DESC: &[u16] = wchz!("Много полезных функций шифрования/хэширования и kdf");
 const DEBUG: bool = false;
 
