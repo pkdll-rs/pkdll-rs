@@ -5,6 +5,7 @@ mod rsa;
 mod kdf;
 mod random;
 mod blowfish;
+mod xor;
 mod dllmain;
 
 mod utils {
@@ -18,6 +19,7 @@ mod utils {
     pub mod kdf;
     pub mod random;
     pub mod blowfish;
+    pub mod xor;
 }
 
 pub use crate::{
