@@ -1,24 +1,29 @@
 Постарался собрать все известные мне шифровки/хэши/kdf в одном плагине
 
 ## Возможности
-    - AES с разными паддингами (пока только CBC и ECB)
-    - Экспорт делителей (modulus) публичного RSA ключа в pem формат 
-    - RSA pkcs1v15 и OAEP, а также подпись (pkcs1 или pss)
-    - Хэши очень многих видов, а также hmac
-    - bcrypt, соль нужно передавать самому
-    - scrypt, поддержка всех параметров
-    - pbkdf2
-    - функция для генерации рандомных байтов (для соли/ключей шифрования)
-    - blowfish
+
+- AES с разными паддингами (пока только CBC и ECB)
+- Экспорт делителей (modulus) публичного RSA ключа в pem формат 
+- RSA pkcs1v15 и OAEP, а также подпись (pkcs1 или pss)
+- Хэши очень многих видов, а также hmac
+- bcrypt, соль нужно передавать самому
+- scrypt, поддержка всех параметров
+- pbkdf2
+- функция для генерации рандомных байтов (для соли/ключей шифрования)
+- blowfish
+- xor
+- rc4
 
 ## Особенности
- - Данные для шифрования/хэширования, а так же ключ передавать в base64
- - Если какой-либо параметр для вызова функции нужно пропустить - не убирайте |PDEL|, просто ничего не ставьте на это место
-   
-   Пример: `(|DLL|dllName:crypto;funcName:some_func;params:первый|PDEL||PDEL|третий;|DLL|)`. Тут второй параметр не обязателен, но пропускать его нельзя
- - Ошибки при вызове функии возвращаются в формате `ERR|описание ошибки`
+
+- Данные для шифрования/хэширования, а так же ключ передавать в base64
+- Если какой-либо параметр для вызова функции нужно пропустить - не убирайте |PDEL|, просто ничего не ставьте на это место
+
+    Пример: `(|DLL|dllName:crypto;funcName:some_func;params:первый|PDEL||PDEL|третий;|DLL|)`. Тут второй параметр не обязателен, но пропускать его нельзя
+- Ошибки при вызове функии возвращаются в формате `ERR|описание ошибки`
 
 ## Использование
+
 <details><summary>AES</summary>
 
 ```
@@ -219,6 +224,38 @@ Hmac
 |DV|[blowfish_iv] = djFUivAKUUs=
 |DV|[encrypted] = (|DLL|dllName:crypto;funcName:blowfish_encrypt;params:|DV|[data]|PDEL||DV|[blowfish_key]|PDEL||DV|[blowfish_iv]|PDEL|cbc|PDEL|pkcs7;|DLL|)
 |DV|[decrypted_base64] = (|DLL|dllName:crypto;funcName:blowfish_decrypt;params:|DV|[encrypted]|PDEL||DV|[blowfish_key]|PDEL||DV|[blowfish_iv]|PDEL|cbc|PDEL|pkcs7;|DLL|)
+|DV|[decrypted] = (|DLL|dllName:encoding;funcName:b64_decode;params:|DV|[decrypted_base64];|DLL|)
+```
+
+</details>
+
+<details><summary>Xor</summary>
+
+```
+******************
+Параметры: - данные для шифровки и дешифровки
+           - ключ (base64 строк или же просто число)
+******************
+|DV|[data] = (|BASE64|test data|BASE64|)
+|DV|[key] = (|BASE64|secretkey|BASE64|)
+|DV|[encrypted] = (|DLL|dllName:crypto;funcName:xor;params:|DV|[data]|PDEL||DV|[key];|DLL|)
+|DV|[decrypted_base64] = ((|DLL|dllName:crypto;funcName:xor;params:|DV|[encrypted]|PDEL||DV|[key];|DLL|)
+|DV|[decrypted] = (|DLL|dllName:encoding;funcName:b64_decode;params:|DV|[decrypted_base64];|DLL|)
+```
+
+</details>
+
+<details><summary>КС4</summary>
+
+```
+******************
+Параметры: - данные для шифровки и дешифровки
+           - ключ
+******************
+|DV|[data] = (|BASE64|test data|BASE64|)
+|DV|[key] = (|BASE64|secretkey|BASE64|)
+|DV|[encrypted] = (|DLL|dllName:crypto;funcName:rc4;params:|DV|[data]|PDEL||DV|[key];|DLL|)
+|DV|[decrypted_base64] = ((|DLL|dllName:crypto;funcName:rc4;params:|DV|[encrypted]|PDEL||DV|[key];|DLL|)
 |DV|[decrypted] = (|DLL|dllName:encoding;funcName:b64_decode;params:|DV|[decrypted_base64];|DLL|)
 ```
 
