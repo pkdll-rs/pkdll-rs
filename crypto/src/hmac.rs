@@ -1,4 +1,4 @@
-use winapi::um::winnt::PWSTR;
+use winapi::um::winnt::LPCWSTR;
 
 use crate::utils::cstring;
 use crate::utils::hmac;
@@ -6,7 +6,7 @@ use crate::utils::hmac;
 use crate::unwrap_or_err;
 
 #[no_mangle]
-pub extern "stdcall" fn hmac(hash_type: PWSTR, data_ptr: PWSTR, key_ptr: PWSTR) -> PWSTR {
+pub extern "stdcall" fn hmac(hash_type: LPCWSTR, data_ptr: LPCWSTR, key_ptr: LPCWSTR) -> LPCWSTR {
     let data = cstring::from_widechar_ptr(data_ptr);
     let data = unwrap_or_err!(base64::decode(data));
 

@@ -1,12 +1,12 @@
 use base64;
-use winapi::um::winnt::PWSTR;
+use winapi::um::winnt::LPCWSTR;
 
 use crate::utils::{cstring, aes};
 use crate::unwrap_or_err;
 
 /// inputs, outputs in base64
 #[no_mangle]
-pub extern "stdcall" fn aes_encrypt(data_ptr: PWSTR, key_ptr: PWSTR, iv_ptr: PWSTR, mode_ptr: PWSTR, padding_ptr: PWSTR) -> PWSTR {
+pub extern "stdcall" fn aes_encrypt(data_ptr: LPCWSTR, key_ptr: LPCWSTR, iv_ptr: LPCWSTR, mode_ptr: LPCWSTR, padding_ptr: LPCWSTR) -> LPCWSTR {
     let data = cstring::from_widechar_ptr(data_ptr);
     let key = cstring::from_widechar_ptr(key_ptr);
     let iv = cstring::from_widechar_ptr(iv_ptr);
@@ -23,7 +23,7 @@ pub extern "stdcall" fn aes_encrypt(data_ptr: PWSTR, key_ptr: PWSTR, iv_ptr: PWS
 
 /// inputs, outputs in base64
 #[no_mangle]
-pub extern "stdcall" fn aes_decrypt(data_ptr: PWSTR, key_ptr: PWSTR, iv_ptr: PWSTR, mode_ptr: PWSTR, padding_ptr: PWSTR) -> PWSTR {
+pub extern "stdcall" fn aes_decrypt(data_ptr: LPCWSTR, key_ptr: LPCWSTR, iv_ptr: LPCWSTR, mode_ptr: LPCWSTR, padding_ptr: LPCWSTR) -> LPCWSTR {
     let data = cstring::from_widechar_ptr(data_ptr);
     let key = cstring::from_widechar_ptr(key_ptr);
     let iv = cstring::from_widechar_ptr(iv_ptr);

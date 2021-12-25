@@ -1,4 +1,4 @@
-use winapi::um::winnt::PWSTR;
+use winapi::um::winnt::LPCWSTR;
 
 use crate::utils::cstring;
 use crate::utils::random;
@@ -6,7 +6,7 @@ use crate::utils::random;
 use crate::unwrap_or_err;
 
 #[no_mangle]
-pub extern "stdcall" fn random_bytes(len_ptr: PWSTR) -> PWSTR {
+pub extern "stdcall" fn random_bytes(len_ptr: LPCWSTR) -> LPCWSTR {
     let len = cstring::from_widechar_ptr(len_ptr);
     let len = unwrap_or_err!(len.parse::<usize>());
 
