@@ -1,0 +1,22 @@
+[package]
+name = "aws"
+version = "0.0.3"
+edition = "2021"
+
+[dependencies]
+wchar = "^0.11"
+winapi = { version = "^0.3.7", features = ["consoleapi"] }
+mimalloc = { version = "0.1.17" }
+base64 = "^0.13.0"
+rusoto_signature = {git = "https://github.com/Numenorean/rusoto/", branch = "rusoto_signature"}
+url = "2.2.2"
+chrono = "0.4.19"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+panic = 'abort'
