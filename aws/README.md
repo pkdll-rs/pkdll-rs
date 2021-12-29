@@ -10,12 +10,17 @@ content-type: application/json; charset=utf-8
 user-agent: aws-sdk-iOS/2.26.5 iOS/14.4 en_US
 #endScript
 
-|DV|[payload] = // только в POST запросе, base64
+// только в POST запросе, base64
+|DV|[payload] =
 
 |DV|[key_id] = ASIAUKS2XSL25YK3FDNO
 |DV|[secret_key] = DGZ7TAVURXmOixK27NMxOYxVOhE2xyTSER8YqQL2
-|DV|[session_token] = IQoJb3JpZ2luX2VjEOH//////////... // нужно не всегда
-|DV|[exp] = 1640801496000 // нужно не всегда
+
+// нужно не всегда
+|DV|[session_token] = IQoJb3JpZ2luX2VjEOH//////////...
+
+// нужно не всегда
+|DV|[exp] = 1640801496000
 
 |DV|[auth_header_and_date] = (|DLL|dllName:aws;funcName:sign;params:GET|PDEL|https://access.example.com/info?type=user|PDEL|execute-api|PDEL|us-west-2|PDEL||DV|[headers_sign]|PDEL||DV|[[payload]|PDEL||DV|[key_id]|PDEL||DV|[secret]|PDEL||DV|[session_token]|PDEL||DV|[exp];|DLL|)
 
