@@ -4,8 +4,9 @@ use chrono::{TimeZone, Utc};
 use signature::{credential::AwsCredentials, Region};
 use winapi::um::winnt::LPCWSTR;
 
-use crate::{cstring, debug, unwrap_or_err, utils::aws, DEBUG};
 use rusoto_signature as signature;
+
+use crate::{cstring, debug, unwrap_or_err, utils::aws, DEBUG, ERR};
 
 #[no_mangle]
 pub extern "stdcall" fn sign(
@@ -74,7 +75,7 @@ pub extern "stdcall" fn sign(
 
     let mut signed_request =
         aws::create_request(&method, url, &service, region, headers_map, payload);
-    debug!("Signed requests: {:?}", signed_request);
+    debug!("Signed request: {:?}", signed_request);
 
     let creds = AwsCredentials::new(key, secret, token, expires_at);
     signed_request.sign(&creds);
@@ -82,24 +83,27 @@ pub extern "stdcall" fn sign(
     let auth_header = match signed_request.headers().get("authorization") {
         Some(value) => unsafe { String::from_utf8_unchecked(value[0].clone()) },
         None => {
-            let mut err_string = "can't sign request".to_string();
-            err_string.insert_str(0, crate::ERR);
-            return cstring::to_widechar_ptr(&err_string);
+            return cstring::to_widechar_ptr(format!("{}{}", ERR, "can't sign request"));
         }
     };
 
     let date = match signed_request.headers().get("x-amz-date") {
         Some(value) => unsafe { String::from_utf8_unchecked(value[0].clone()) },
         None => {
-            let mut err_string = "can't sign request".to_string();
-            err_string.insert_str(0, crate::ERR);
-            return cstring::to_widechar_ptr(&err_string);
+            return cstring::to_widechar_ptr(format!("{}{}", ERR, "can't sign request"));
+        }
+    };
+
+    let payload_sign = match signed_request.headers().get("x-amz-content-sha256") {
+        Some(value) => unsafe { String::from_utf8_unchecked(value[0].clone()) },
+        None => {
+            return cstring::to_widechar_ptr(format!("{}{}", ERR, "can't sign request"));
         }
     };
 
     let result = format!(
-        r#"{{"authorization":"{}", "date":"{}"}}"#,
-        auth_header, date
+        r#"{{"authorization":"{}", "x-amz-date":"{}", "x-amz-content-sha256":"{}"}}"#,
+        auth_header, date, payload_sign
     );
 
     debug!("Result: {}", result);
