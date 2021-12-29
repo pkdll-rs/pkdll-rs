@@ -2,13 +2,10 @@ use crate::{debug, DEBUG};
 use wchar::wchz;
 
 use winapi::shared::basetsd::DWORD32;
-use winapi::um::{
-    consoleapi::AllocConsole,
-    wincon::FreeConsole,
-};
 use winapi::shared::minwindef::{BOOL, HINSTANCE, LPVOID, TRUE};
 use winapi::um::libloaderapi::DisableThreadLibraryCalls;
 use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, LPCWSTR};
+use winapi::um::{consoleapi::AllocConsole, wincon::FreeConsole};
 
 const AUTHOR: &[u16] = wchz!("_Skill_");
 const VER: &[u16] = wchz!("0.1");

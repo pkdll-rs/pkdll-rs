@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 
-use chrono::{Utc, TimeZone};
-use signature::{Region, credential::AwsCredentials};
+use chrono::{TimeZone, Utc};
+use signature::{credential::AwsCredentials, Region};
 use winapi::um::winnt::LPCWSTR;
 
-use crate::{cstring, unwrap_or_err, utils::aws, debug, DEBUG};
+use crate::{cstring, debug, unwrap_or_err, utils::aws, DEBUG};
 use rusoto_signature as signature;
 
 #[no_mangle]
@@ -26,27 +26,38 @@ pub extern "stdcall" fn sign(
     let service = cstring::from_widechar_ptr(service_ptr);
     let region = cstring::from_widechar_ptr(region_ptr);
     let headers = cstring::from_widechar_ptr(headers_ptr);
-    let payload = cstring::from_widechar_ptr(payload_ptr);
-    let payload = match base64::decode(payload) {
-        Ok(payload) => Some(payload),
-        Err(_) => None,
+    let payload = {
+        let payload = cstring::from_widechar_ptr(payload_ptr);
+        match base64::decode(payload) {
+            Ok(payload) => Some(payload),
+            Err(_) => None,
+        }
     };
 
     let key = cstring::from_widechar_ptr(key_ptr);
     let secret = cstring::from_widechar_ptr(secret_ptr);
 
-    let token = cstring::from_widechar_ptr(token_ptr);
-    let token = if token.len() > 0 {Some(token)} else {None};
-
-    let expires_at = cstring::from_widechar_ptr(expires_at_ptr);
-    let expires_at = match expires_at.parse::<i64>() {
-        Ok(expires_at) => Some(Utc.timestamp_millis(expires_at)),
-        Err(_) => None,
+    let token = {
+        let token = cstring::from_widechar_ptr(token_ptr);
+        if token.len() > 0 {
+            Some(token)
+        } else {
+            None
+        }
     };
 
-    println!("ghjghj");
+    let expires_at = {
+        let expires_at = cstring::from_widechar_ptr(expires_at_ptr);
+        match expires_at.parse::<i64>() {
+            Ok(expires_at) => Some(Utc.timestamp_millis(expires_at)),
+            Err(_) => None,
+        }
+    };
 
-    debug!("Called sign({},{},{},{},{},{:?},{},{},{:?},{:?})", method, url, service, region, headers, payload, key, secret, token, expires_at);
+    debug!(
+        "Called sign({},{},{},{},{},{:?},{},{},{:?},{:?})",
+        method, url, service, region, headers, payload, key, secret, token, expires_at
+    );
 
     let url = unwrap_or_err!(url.parse::<url::Url>());
     let region = unwrap_or_err!(region.parse::<Region>());
@@ -61,14 +72,15 @@ pub extern "stdcall" fn sign(
         }
     });
 
-    let mut signed_request = aws::create_request(&method, url, &service, region, headers_map, payload);
+    let mut signed_request =
+        aws::create_request(&method, url, &service, region, headers_map, payload);
     debug!("Signed requests: {:?}", signed_request);
 
     let creds = AwsCredentials::new(key, secret, token, expires_at);
     signed_request.sign(&creds);
 
     let auth_header = match signed_request.headers().get("authorization") {
-        Some(value) => unsafe {String::from_utf8_unchecked(value[0].clone())},
+        Some(value) => unsafe { String::from_utf8_unchecked(value[0].clone()) },
         None => {
             let mut err_string = "can't sign request".to_string();
             err_string.insert_str(0, crate::ERR);
@@ -77,7 +89,7 @@ pub extern "stdcall" fn sign(
     };
 
     let date = match signed_request.headers().get("x-amz-date") {
-        Some(value) => unsafe {String::from_utf8_unchecked(value[0].clone())},
+        Some(value) => unsafe { String::from_utf8_unchecked(value[0].clone()) },
         None => {
             let mut err_string = "can't sign request".to_string();
             err_string.insert_str(0, crate::ERR);
@@ -85,7 +97,10 @@ pub extern "stdcall" fn sign(
         }
     };
 
-    let result = format!(r#"{{"authorization":"{}", "date":"{}"}}"#, auth_header, date);
+    let result = format!(
+        r#"{{"authorization":"{}", "date":"{}"}}"#,
+        auth_header, date
+    );
 
     debug!("Result: {}", result);
 
