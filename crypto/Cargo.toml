@@ -31,6 +31,8 @@ blowfish = "^0.8.0"
 byteorder = "^1.4.3"
 mimalloc = { version = "0.1.17" }
 arc4 = "0.1.0"
+ctr = "0.8.0"
+anyhow = "1.0.52"
 
 [dev-dependencies]
 criterion = "0.3"

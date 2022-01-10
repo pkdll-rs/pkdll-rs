@@ -1,20 +1,21 @@
 use md4::Md4;
 use md5::Md5;
+use rand::rngs::OsRng;
 use ripemd160::Ripemd160;
 use ripemd256::Ripemd256;
 use ripemd320::Ripemd320;
 use rsa::{
-    BigUint, Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey, errors,
+    errors,
     pkcs1::{FromRsaPrivateKey, FromRsaPublicKey},
-    pkcs8::{ToPublicKey, FromPublicKey, FromPrivateKey},
+    pkcs8::{FromPrivateKey, FromPublicKey, ToPublicKey},
+    BigUint, Hash, PaddingScheme, PublicKey, RsaPrivateKey, RsaPublicKey,
 };
-use rand::rngs::OsRng;
 use sha1::Sha1;
 use sha2::*;
 use sha3::*;
 use thiserror::Error;
 
-use super::hash::{HashError, make_hash};
+use super::hash::{make_hash, HashError};
 
 #[derive(Error, Debug)]
 pub enum RsaError {
@@ -36,7 +37,7 @@ pub fn modulus_to_pem(n: Vec<u8>, e: Vec<u8>) -> Result<String, errors::Error> {
 
     let pub_key = RsaPublicKey::new(n, e)?;
     let pub_key = RsaPublicKey::to_public_key_pem(&pub_key)?;
-    return Ok(pub_key)
+    Ok(pub_key)
 }
 
 pub fn rsa_encrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Vec<u8>, RsaError> {
@@ -56,7 +57,7 @@ pub fn rsa_encrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Vec<
     let padding = padding_from_str(hash_type)?;
     let mut rng = OsRng;
     let encrypted = pub_key.encrypt(&mut rng, padding, &data)?;
-    return Ok(encrypted)
+    Ok(encrypted)
 }
 
 pub fn rsa_decrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Vec<u8>, RsaError> {
@@ -72,13 +73,18 @@ pub fn rsa_decrypt(data: Vec<u8>, key: String, hash_type: String) -> Result<Vec<
             Err(_) => return Err(RsaError::InvalidPrivateKey),
         };
     }
-    
+
     let padding = padding_from_str(hash_type)?;
     let decrypted = priv_key.decrypt(padding, &data)?;
-    return Ok(decrypted)
+    Ok(decrypted)
 }
 
-pub fn rsa_sign(data: Vec<u8>, key: String, hash_type: String, mode: String) -> Result<Vec<u8>, RsaError> {
+pub fn rsa_sign(
+    data: Vec<u8>,
+    key: String,
+    hash_type: String,
+    mode: String,
+) -> Result<Vec<u8>, RsaError> {
     let priv_key: RsaPrivateKey;
     if key.contains("--BEGIN RSA") {
         priv_key = match RsaPrivateKey::from_pkcs1_pem(key.as_str()) {
@@ -96,7 +102,7 @@ pub fn rsa_sign(data: Vec<u8>, key: String, hash_type: String, mode: String) -> 
 
     let padding = sign_padding_from_str(hash_type, mode)?;
     let signed = priv_key.sign(padding, &hashed_data)?;
-    return Ok(signed)
+    Ok(signed)
 }
 
 fn padding_from_str(hash_type: String) -> Result<PaddingScheme, RsaError> {
@@ -122,7 +128,11 @@ fn padding_from_str(hash_type: String) -> Result<PaddingScheme, RsaError> {
                 "ripemd160" => PaddingScheme::new_oaep::<Ripemd160>(),
                 "ripemd256" => PaddingScheme::new_oaep::<Ripemd256>(),
                 "ripemd320" => PaddingScheme::new_oaep::<Ripemd320>(),
-                _ => return Err(RsaError::InvalidHashType(HashError::InvalidHashType(hash_type)))
+                _ => {
+                    return Err(RsaError::InvalidHashType(HashError::InvalidHashType(
+                        hash_type,
+                    )))
+                }
             };
             Ok(padding)
         }
@@ -144,7 +154,11 @@ fn sign_padding_from_str(hash_type: String, mode: String) -> Result<PaddingSchem
                 "sha3-512" => Hash::SHA3_512,
                 "ripemd160" => Hash::RIPEMD160,
                 "md5sha1" => Hash::MD5SHA1,
-                _ => return Err(RsaError::InvalidHashType(HashError::InvalidHashType(hash_type)))
+                _ => {
+                    return Err(RsaError::InvalidHashType(HashError::InvalidHashType(
+                        hash_type,
+                    )))
+                }
             };
             PaddingScheme::new_pkcs1v15_sign(Some(hash))
         }
@@ -171,11 +185,15 @@ fn sign_padding_from_str(hash_type: String, mode: String) -> Result<PaddingSchem
                 "ripemd160" => PaddingScheme::new_pss::<Ripemd160, OsRng>(rng),
                 "ripemd256" => PaddingScheme::new_pss::<Ripemd256, OsRng>(rng),
                 "ripemd320" => PaddingScheme::new_pss::<Ripemd320, OsRng>(rng),
-                _ => return Err(RsaError::InvalidHashType(HashError::InvalidHashType(hash_type)))
+                _ => {
+                    return Err(RsaError::InvalidHashType(HashError::InvalidHashType(
+                        hash_type,
+                    )))
+                }
             }
         }
 
-        _ => return Err(RsaError::InvalidSignMode(mode))
+        _ => return Err(RsaError::InvalidSignMode(mode)),
     };
 
     Ok(padding)

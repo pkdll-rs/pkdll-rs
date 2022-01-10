@@ -16,6 +16,5 @@ pub extern "stdcall" fn rc4(data_ptr: LPCWSTR, key_ptr: LPCWSTR) -> LPCWSTR {
     let mut cipher = Arc4::with_key(&key);
     cipher.encrypt(&mut data);
 
-
     cstring::to_widechar_ptr(&base64::encode(data))
 }

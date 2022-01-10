@@ -1,9 +1,12 @@
 use std::error::Error;
 
 use aes::{Aes128, Aes192, Aes256};
-use block_modes::{BlockMode, Cbc, Ecb, block_padding::*};
+use block_modes::{block_padding::*, BlockMode, Cbc, Ecb};
+use ctr::cipher::{NewCipher, StreamCipher};
+use ctr::Ctr;
 
 use blowfish::Blowfish;
+use ctr::flavors::Ctr128BE;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -31,7 +34,7 @@ impl Pad {
             "zero" => Pad::ZeroPadding,
             "iso7816" => Pad::Iso7816,
             "ansi_x923" => Pad::AnsiX923,
-            _ => return Err(AesError::InvalidPadding(padding))
+            _ => return Err(AesError::InvalidPadding(padding)),
         };
         Ok(padding)
     }
@@ -40,6 +43,7 @@ impl Pad {
 pub enum Mode {
     Ecb,
     Cbc,
+    Ctr,
 }
 
 impl Mode {
@@ -47,7 +51,8 @@ impl Mode {
         let mode = match mode.as_str() {
             "ecb" => Mode::Ecb,
             "cbc" => Mode::Cbc,
-            _ => return Err(AesError::InvalidMode(mode))
+            "ctr" => Mode::Ctr,
+            _ => return Err(AesError::InvalidMode(mode)),
         };
         Ok(mode)
     }
@@ -66,7 +71,7 @@ impl Cipher {
             16 => Cipher::Aes128,
             24 => Cipher::Aes192,
             32 => Cipher::Aes256,
-            _ => return Err(AesError::InvalidKeyLen(key_length))
+            _ => return Err(AesError::InvalidKeyLen(key_length)),
         };
         Ok(aes_type)
     }
@@ -87,7 +92,7 @@ impl BlockCipher {
         key: Vec<u8>,
         iv: Vec<u8>,
         plaintext: Vec<u8>,
-    ) -> Result<Vec<u8>, Box<dyn Error>> {
+    ) -> Result<Vec<u8>, anyhow::Error> {
         match (&self.cipher, &self.mode, &self.pad) {
             // Aes
             (Cipher::Aes128, Mode::Cbc, Pad::Pkcs7) => {
@@ -181,12 +186,35 @@ impl BlockCipher {
                 Ok(Ecb::<Aes256, AnsiX923>::new_from_slices(&key, &iv)?.encrypt_vec(&plaintext))
             }
 
+            // AES CTR
+            (Cipher::Aes128, Mode::Ctr, _) => {
+                let mut ciphertext = plaintext;
+                Ctr::<Aes128, Ctr128BE>::new(key.as_slice().into(), iv.as_slice().into())
+                    .apply_keystream(&mut ciphertext);
+                Ok(ciphertext)
+            }
+
+            (Cipher::Aes192, Mode::Ctr, _) => {
+                let mut ciphertext = plaintext;
+                Ctr::<Aes192, Ctr128BE>::new(key.as_slice().into(), iv.as_slice().into())
+                    .apply_keystream(&mut ciphertext);
+                Ok(ciphertext)
+            }
+
+            (Cipher::Aes256, Mode::Ctr, _) => {
+                let mut ciphertext = plaintext;
+                Ctr::<Aes256, Ctr128BE>::new(key.as_slice().into(), iv.as_slice().into())
+                    .apply_keystream(&mut ciphertext);
+                Ok(ciphertext)
+            }
+
             // Blowfish
             (Cipher::Blowfish, Mode::Cbc, Pad::Pkcs7) => {
                 Ok(Cbc::<Blowfish, Pkcs7>::new_from_slices(&key, &iv)?.encrypt_vec(&plaintext))
             }
             (Cipher::Blowfish, Mode::Cbc, Pad::ZeroPadding) => {
-                Ok(Cbc::<Blowfish, ZeroPadding>::new_from_slices(&key, &iv)?.encrypt_vec(&plaintext))
+                Ok(Cbc::<Blowfish, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .encrypt_vec(&plaintext))
             }
             (Cipher::Blowfish, Mode::Cbc, Pad::NoPadding) => {
                 Ok(Cbc::<Blowfish, NoPadding>::new_from_slices(&key, &iv)?.encrypt_vec(&plaintext))
@@ -201,7 +229,8 @@ impl BlockCipher {
                 Ok(Ecb::<Blowfish, Pkcs7>::new_from_slices(&key, &iv)?.encrypt_vec(&plaintext))
             }
             (Cipher::Blowfish, Mode::Ecb, Pad::ZeroPadding) => {
-                Ok(Ecb::<Blowfish, ZeroPadding>::new_from_slices(&key, &iv)?.encrypt_vec(&plaintext))
+                Ok(Ecb::<Blowfish, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .encrypt_vec(&plaintext))
             }
             (Cipher::Blowfish, Mode::Ecb, Pad::NoPadding) => {
                 Ok(Ecb::<Blowfish, NoPadding>::new_from_slices(&key, &iv)?.encrypt_vec(&plaintext))
@@ -212,6 +241,8 @@ impl BlockCipher {
             (Cipher::Blowfish, Mode::Ecb, Pad::AnsiX923) => {
                 Ok(Ecb::<Blowfish, AnsiX923>::new_from_slices(&key, &iv)?.encrypt_vec(&plaintext))
             }
+
+            _ => unimplemented!(),
         }
     }
 
@@ -226,91 +257,125 @@ impl BlockCipher {
                 Ok(Cbc::<Aes128, Pkcs7>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes128, Mode::Cbc, Pad::ZeroPadding) => {
-                Ok(Cbc::<Aes128, ZeroPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Aes128, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes128, Mode::Cbc, Pad::NoPadding) => {
-                Ok(Cbc::<Aes128, NoPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Aes128, NoPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes128, Mode::Cbc, Pad::Iso7816) => {
                 Ok(Cbc::<Aes128, Iso7816>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
-            (Cipher::Aes128, Mode::Cbc, Pad::AnsiX923) => {
-                Ok(Cbc::<Aes128, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
-            }
+            (Cipher::Aes128, Mode::Cbc, Pad::AnsiX923) => Ok(
+                Cbc::<Aes128, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?,
+            ),
             (Cipher::Aes128, Mode::Ecb, Pad::Pkcs7) => {
                 Ok(Ecb::<Aes128, Pkcs7>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes128, Mode::Ecb, Pad::ZeroPadding) => {
-                Ok(Ecb::<Aes128, ZeroPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Aes128, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes128, Mode::Ecb, Pad::NoPadding) => {
-                Ok(Ecb::<Aes128, NoPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Aes128, NoPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes128, Mode::Ecb, Pad::Iso7816) => {
                 Ok(Ecb::<Aes128, Iso7816>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
-            (Cipher::Aes128, Mode::Ecb, Pad::AnsiX923) => {
-                Ok(Ecb::<Aes128, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
-            }
+            (Cipher::Aes128, Mode::Ecb, Pad::AnsiX923) => Ok(
+                Ecb::<Aes128, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?,
+            ),
             (Cipher::Aes192, Mode::Ecb, Pad::Pkcs7) => {
                 Ok(Ecb::<Aes192, Pkcs7>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes192, Mode::Ecb, Pad::ZeroPadding) => {
-                Ok(Ecb::<Aes192, ZeroPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Aes192, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes192, Mode::Ecb, Pad::NoPadding) => {
-                Ok(Ecb::<Aes192, NoPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Aes192, NoPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes192, Mode::Ecb, Pad::Iso7816) => {
                 Ok(Ecb::<Aes192, Iso7816>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
-            (Cipher::Aes192, Mode::Ecb, Pad::AnsiX923) => {
-                Ok(Ecb::<Aes192, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
-            }
+            (Cipher::Aes192, Mode::Ecb, Pad::AnsiX923) => Ok(
+                Ecb::<Aes192, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?,
+            ),
             (Cipher::Aes192, Mode::Cbc, Pad::Pkcs7) => {
                 Ok(Cbc::<Aes192, Pkcs7>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes192, Mode::Cbc, Pad::ZeroPadding) => {
-                Ok(Cbc::<Aes192, ZeroPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Aes192, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes192, Mode::Cbc, Pad::NoPadding) => {
-                Ok(Cbc::<Aes192, NoPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Aes192, NoPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes192, Mode::Cbc, Pad::Iso7816) => {
                 Ok(Cbc::<Aes192, Iso7816>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
-            (Cipher::Aes192, Mode::Cbc, Pad::AnsiX923) => {
-                Ok(Cbc::<Aes192, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
-            }
+            (Cipher::Aes192, Mode::Cbc, Pad::AnsiX923) => Ok(
+                Cbc::<Aes192, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?,
+            ),
             (Cipher::Aes256, Mode::Cbc, Pad::Pkcs7) => {
                 Ok(Cbc::<Aes256, Pkcs7>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes256, Mode::Cbc, Pad::ZeroPadding) => {
-                Ok(Cbc::<Aes256, ZeroPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Aes256, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes256, Mode::Cbc, Pad::NoPadding) => {
-                Ok(Cbc::<Aes256, NoPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Aes256, NoPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes256, Mode::Cbc, Pad::Iso7816) => {
                 Ok(Cbc::<Aes256, Iso7816>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
-            (Cipher::Aes256, Mode::Cbc, Pad::AnsiX923) => {
-                Ok(Cbc::<Aes256, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
-            }
+            (Cipher::Aes256, Mode::Cbc, Pad::AnsiX923) => Ok(
+                Cbc::<Aes256, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?,
+            ),
             (Cipher::Aes256, Mode::Ecb, Pad::Pkcs7) => {
                 Ok(Ecb::<Aes256, Pkcs7>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes256, Mode::Ecb, Pad::ZeroPadding) => {
-                Ok(Ecb::<Aes256, ZeroPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Aes256, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes256, Mode::Ecb, Pad::NoPadding) => {
-                Ok(Ecb::<Aes256, NoPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Aes256, NoPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Aes256, Mode::Ecb, Pad::Iso7816) => {
                 Ok(Ecb::<Aes256, Iso7816>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
-            (Cipher::Aes256, Mode::Ecb, Pad::AnsiX923) => {
-                Ok(Ecb::<Aes256, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+            (Cipher::Aes256, Mode::Ecb, Pad::AnsiX923) => Ok(
+                Ecb::<Aes256, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?,
+            ),
+
+            // AES CTR
+            (Cipher::Aes128, Mode::Ctr, _) => {
+                let mut plaintext = ciphertext;
+                Ctr::<Aes128, Ctr128BE>::new(key.as_slice().into(), iv.as_slice().into())
+                    .apply_keystream(&mut plaintext);
+                Ok(plaintext)
+            }
+
+            (Cipher::Aes192, Mode::Ctr, _) => {
+                let mut plaintext = ciphertext;
+                Ctr::<Aes192, Ctr128BE>::new(key.as_slice().into(), iv.as_slice().into())
+                    .apply_keystream(&mut plaintext);
+                Ok(plaintext)
+            }
+
+            (Cipher::Aes256, Mode::Ctr, _) => {
+                let mut plaintext = ciphertext;
+                Ctr::<Aes256, Ctr128BE>::new(key.as_slice().into(), iv.as_slice().into())
+                    .apply_keystream(&mut plaintext);
+                Ok(plaintext)
             }
 
             // Blowfish
@@ -318,33 +383,42 @@ impl BlockCipher {
                 Ok(Cbc::<Blowfish, Pkcs7>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Cbc, Pad::ZeroPadding) => {
-                Ok(Cbc::<Blowfish, ZeroPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Blowfish, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Cbc, Pad::NoPadding) => {
-                Ok(Cbc::<Blowfish, NoPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Blowfish, NoPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Cbc, Pad::Iso7816) => {
-                Ok(Cbc::<Blowfish, Iso7816>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Blowfish, Iso7816>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Cbc, Pad::AnsiX923) => {
-                Ok(Cbc::<Blowfish, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Cbc::<Blowfish, AnsiX923>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Ecb, Pad::Pkcs7) => {
                 Ok(Ecb::<Blowfish, Pkcs7>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Ecb, Pad::ZeroPadding) => {
-                Ok(Ecb::<Blowfish, ZeroPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Blowfish, ZeroPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Ecb, Pad::NoPadding) => {
-                Ok(Ecb::<Blowfish, NoPadding>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Blowfish, NoPadding>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Ecb, Pad::Iso7816) => {
-                Ok(Ecb::<Blowfish, Iso7816>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Blowfish, Iso7816>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
             (Cipher::Blowfish, Mode::Ecb, Pad::AnsiX923) => {
-                Ok(Ecb::<Blowfish, AnsiX923>::new_from_slices(&key, &iv)?.decrypt_vec(&ciphertext)?)
+                Ok(Ecb::<Blowfish, AnsiX923>::new_from_slices(&key, &iv)?
+                    .decrypt_vec(&ciphertext)?)
             }
-            
+
+            _ => unimplemented!(),
         }
     }
 }

@@ -34,7 +34,14 @@ pub extern "stdcall" fn bcrypt(data_ptr: LPCWSTR, cost_ptr: LPCWSTR, salt_ptr: L
 /// - `len = 32`
 /// - `len(salt) = 16 bytes (max - 63)`
 #[no_mangle]
-pub extern "stdcall" fn scrypt(data_ptr: LPCWSTR, log_n_ptr: LPCWSTR, r_ptr: LPCWSTR, p_ptr: LPCWSTR, len_ptr: LPCWSTR, salt_ptr: LPCWSTR) -> LPCWSTR {
+pub extern "stdcall" fn scrypt(
+    data_ptr: LPCWSTR,
+    log_n_ptr: LPCWSTR,
+    r_ptr: LPCWSTR,
+    p_ptr: LPCWSTR,
+    len_ptr: LPCWSTR,
+    salt_ptr: LPCWSTR,
+) -> LPCWSTR {
     let data = cstring::from_widechar_ptr(data_ptr);
     let data = unwrap_or_err!(base64::decode(data));
 
@@ -59,7 +66,13 @@ pub extern "stdcall" fn scrypt(data_ptr: LPCWSTR, log_n_ptr: LPCWSTR, r_ptr: LPC
 }
 
 #[no_mangle]
-pub extern "stdcall" fn pbkdf2(data_ptr: LPCWSTR, salt_ptr: LPCWSTR, rounds_ptr: LPCWSTR, len_ptr: LPCWSTR, hash_type_ptr: LPCWSTR) -> LPCWSTR {
+pub extern "stdcall" fn pbkdf2(
+    data_ptr: LPCWSTR,
+    salt_ptr: LPCWSTR,
+    rounds_ptr: LPCWSTR,
+    len_ptr: LPCWSTR,
+    hash_type_ptr: LPCWSTR,
+) -> LPCWSTR {
     let data = cstring::from_widechar_ptr(data_ptr);
     let data = unwrap_or_err!(base64::decode(data));
 

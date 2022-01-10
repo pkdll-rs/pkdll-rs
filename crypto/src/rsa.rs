@@ -19,10 +19,14 @@ pub extern "stdcall" fn rsa_pem_from_modulus(n_ptr: LPCWSTR, e_ptr: LPCWSTR) -> 
 
 /// hash_type needed if you want to use oaep mode
 #[no_mangle]
-pub extern "stdcall" fn rsa_encrypt(data_ptr: LPCWSTR, key_ptr: LPCWSTR, hash_type_ptr: LPCWSTR) -> LPCWSTR {
+pub extern "stdcall" fn rsa_encrypt(
+    data_ptr: LPCWSTR,
+    key_ptr: LPCWSTR,
+    hash_type_ptr: LPCWSTR,
+) -> LPCWSTR {
     let data = cstring::from_widechar_ptr(data_ptr);
     let data = unwrap_or_err!(base64::decode(data));
-    
+
     let key = cstring::from_widechar_ptr(key_ptr);
 
     let hash_type = cstring::from_widechar_ptr(hash_type_ptr);
@@ -34,10 +38,14 @@ pub extern "stdcall" fn rsa_encrypt(data_ptr: LPCWSTR, key_ptr: LPCWSTR, hash_ty
 
 /// hash_type needed if you want to use oaep mode
 #[no_mangle]
-pub extern "stdcall" fn rsa_decrypt(data_ptr: LPCWSTR, key_ptr: LPCWSTR, hash_type_ptr: LPCWSTR) -> LPCWSTR {
+pub extern "stdcall" fn rsa_decrypt(
+    data_ptr: LPCWSTR,
+    key_ptr: LPCWSTR,
+    hash_type_ptr: LPCWSTR,
+) -> LPCWSTR {
     let data = cstring::from_widechar_ptr(data_ptr);
     let data = unwrap_or_err!(base64::decode(data));
-    
+
     let key = cstring::from_widechar_ptr(key_ptr);
 
     let hash_type = cstring::from_widechar_ptr(hash_type_ptr);
@@ -48,10 +56,15 @@ pub extern "stdcall" fn rsa_decrypt(data_ptr: LPCWSTR, key_ptr: LPCWSTR, hash_ty
 }
 
 #[no_mangle]
-pub extern "stdcall" fn rsa_sign(data_ptr: LPCWSTR, key_ptr: LPCWSTR, hash_type_ptr: LPCWSTR, mode_ptr: LPCWSTR) -> LPCWSTR {
+pub extern "stdcall" fn rsa_sign(
+    data_ptr: LPCWSTR,
+    key_ptr: LPCWSTR,
+    hash_type_ptr: LPCWSTR,
+    mode_ptr: LPCWSTR,
+) -> LPCWSTR {
     let data = cstring::from_widechar_ptr(data_ptr);
     let data = unwrap_or_err!(base64::decode(data));
-    
+
     let key = cstring::from_widechar_ptr(key_ptr);
 
     let hash_type = cstring::from_widechar_ptr(hash_type_ptr);

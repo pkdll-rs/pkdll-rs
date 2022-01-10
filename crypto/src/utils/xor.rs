@@ -8,6 +8,6 @@ pub fn xor_simple(data: &mut [u8], key: u32) {
 
 pub fn xor(data: &mut [u8], key: Vec<u8>) {
     for i in 0..data.len() {
-        data[i] = data[i] ^ key[i%key.len()];
+        data[i] ^= key[i % key.len()];
     }
 }

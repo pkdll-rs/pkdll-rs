@@ -1,31 +1,29 @@
 mod aes;
+mod blowfish;
+mod dllmain;
 mod hash;
 mod hmac;
-mod rsa;
 mod kdf;
 mod random;
-mod blowfish;
-mod xor;
 mod rc4;
-mod dllmain;
+mod rsa;
+mod xor;
 
 mod utils {
-    pub mod cstring;
-    pub mod cipher;
     pub mod aes;
-    pub mod macros;
+    pub mod blowfish;
+    pub mod cipher;
+    pub mod cstring;
     pub mod hash;
     pub mod hmac;
-    pub mod rsa;
     pub mod kdf;
+    pub mod macros;
     pub mod random;
-    pub mod blowfish;
+    pub mod rsa;
     pub mod xor;
 }
 
-pub use crate::{
-    utils::*,
-};
+pub use crate::utils::*;
 
 pub const ERR: &str = "ERR|";
 
