@@ -14,7 +14,10 @@ pub extern "stdcall" fn bcrypt(data_ptr: LPCWSTR, cost_ptr: LPCWSTR, salt_ptr: L
     let cost = unwrap_or_err!(cost.parse::<u32>());
 
     let salt = cstring::from_widechar_ptr(salt_ptr);
-    let salt = unwrap_or_err!(base64::decode(salt));
+    let salt = match base64::decode(&salt) {
+        Ok(salt) => salt,
+        Err(_) => unwrap_or_err!(base64::decode_config(salt, base64::BCRYPT))
+    };
 
     if salt.len() != 16 {
         let mut err_string = String::from("bcrypt accepts only 16 byte length salt");
