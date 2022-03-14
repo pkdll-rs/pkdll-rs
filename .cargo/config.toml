@@ -1,0 +1,4 @@
+[build]
+rustflags = ["-C", "link-args=/DEBUG:NONE"]
+target = "i686-pc-windows-msvc"
+#target = "x86_64-pc-windows-msvc"

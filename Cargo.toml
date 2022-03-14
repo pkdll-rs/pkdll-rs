@@ -1,0 +1,17 @@
+[package]
+name = "pkdll_template"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+wchar = "0.11"
+winapi = { version = "0.3.7", features = ["consoleapi", "libloaderapi"] }
+mimalloc = { version = "0.1.17" }
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = 'abort'
