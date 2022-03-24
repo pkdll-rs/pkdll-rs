@@ -1,32 +1,29 @@
 use wchar::wchz;
 
-use winapi::um::{
-    consoleapi::AllocConsole,
-    wincon::FreeConsole,
-};
-use winapi::shared::minwindef::{BOOL, HINSTANCE, LPVOID, TRUE, DWORD};
+use winapi::shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID, TRUE};
 use winapi::um::libloaderapi::DisableThreadLibraryCalls;
 use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, LPCWSTR};
+use winapi::um::{consoleapi::AllocConsole, wincon::FreeConsole};
 
 //use crate::CACHE;
 
 const AUTHOR: &[u16] = wchz!("_Skill_");
 const VER: &[u16] = wchz!("0.1");
 const DESC: &[u16] = wchz!("Работаем с tcp/udp без лишних серваков");
-const DEBUG: bool = false;
+const DEBUG: bool = true;
 
 #[no_mangle]
-extern "stdcall" fn info_getAuthor() ->  LPCWSTR {
+extern "stdcall" fn info_getAuthor() -> LPCWSTR {
     AUTHOR.as_ptr()
 }
 
 #[no_mangle]
-extern "stdcall" fn info_getVersion() ->  LPCWSTR {
+extern "stdcall" fn info_getVersion() -> LPCWSTR {
     VER.as_ptr()
 }
 
 #[no_mangle]
-extern "stdcall" fn info_getDescription() ->  LPCWSTR {
+extern "stdcall" fn info_getDescription() -> LPCWSTR {
     DESC.as_ptr()
 }
 

@@ -7,7 +7,16 @@ macro_rules! unwrap_or_err {
                 let mut err_string = error.to_string();
                 err_string.insert_str(0, crate::ERR);
                 return cstring::to_widechar_ptr(err_string);
-            },
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! debug {
+    ( $($arg:tt)+ ) => {
+        if DEBUG {
+            println!($($arg)+);
         }
     }
 }

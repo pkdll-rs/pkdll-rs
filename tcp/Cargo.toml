@@ -4,18 +4,16 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-wchar = "^0.11"
-winapi = { version = "^0.3.7", features = ["consoleapi", "libloaderapi"] }
-libc = "^0.2.107"
-base64 = "^0.13.0"
+wchar = "0.11"
+winapi = { version = "0.3.7", features = ["consoleapi", "libloaderapi"] }
+libc = "0.2.107"
+base64 = "0.13.0"
 mimalloc = { version = "0.1.17" }
 socks = {git = "https://github.com/Numenorean/rust-socks"}
-anyhow = "1.0.52"
-#stretto = { version = "0.3.2", features = ["sync"] }
-#endorphin = "0.1.5"
 lazy_static = "1.4.0"
 uuid = {version = "0.8.2", features = ["v4"]}
-#sled = "0.34.7"
+thiserror = "1.0.30"
+thread-control = "0.1.2"
 
 [lib]
 crate-type = ["cdylib"]
