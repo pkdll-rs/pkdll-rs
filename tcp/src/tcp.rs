@@ -19,11 +19,17 @@ pub extern "stdcall" fn connect_ip(
     proxy_addr_ptr: LPCWSTR,
     timeout_ptr: LPCWSTR,
     proxy_resolve_ptr: LPCWSTR,
+    use_tls_ptr: LPCWSTR,
 ) -> LPCWSTR {
     let addr = cstring::from_widechar_ptr(addr_ptr);
     let proxy_addr = cstring::from_widechar_ptr(proxy_addr_ptr);
     let timeout = cstring::from_widechar_ptr(timeout_ptr);
-    let proxy_resolve: bool = cstring::from_widechar_ptr(proxy_resolve_ptr).parse().unwrap_or_default();
+    let proxy_resolve: bool = cstring::from_widechar_ptr(proxy_resolve_ptr)
+        .parse()
+        .unwrap_or_default();
+    let use_tls: bool = cstring::from_widechar_ptr(use_tls_ptr)
+        .parse()
+        .unwrap_or_default();
 
     let timeout: u64 = unwrap_or_err!(timeout.parse());
     let timeout = match timeout {
@@ -41,15 +47,15 @@ pub extern "stdcall" fn connect_ip(
 
     let handler = thread::spawn(move || {
         flag.alive();
-        tcp::connect(addr, proxy, timeout, proxy_resolve).map_err(GlobalError::from)
+        tcp::connect(addr, proxy, timeout, proxy_resolve, use_tls).map_err(GlobalError::from)
     });
 
     let tcp_thread = TcpThread {
         tcp_stream: None,
+        stream: None,
         join_handler: Some(handler),
         thread_control: control,
         current_task: Task::Connect,
-        timeout,
     };
 
     let uuid = Uuid::new_v4().to_hyphenated().to_string();
@@ -63,7 +69,7 @@ pub extern "stdcall" fn connect_ip(
 #[no_mangle]
 pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    if let Err(error) = tcp_stream_exists(&uuid) {
+    if let Err(error) = stream_exists(&uuid) {
         return cstring::to_widechar_ptr(error.to_string());
     }
 
@@ -76,13 +82,13 @@ pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWS
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    let tcp_stream = tcp_thread.tcp_stream.take().unwrap();
+    let stream = tcp_thread.stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
     let handler = thread::spawn(move || {
         flag.alive();
-        tcp::send_data(tcp_stream, data).map_err(GlobalError::from)
+        tcp::send_data(stream, data).map_err(GlobalError::from)
     });
 
     tcp_thread.thread_control = control;
@@ -95,7 +101,7 @@ pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWS
 #[no_mangle]
 pub extern "stdcall" fn recv_exact(uuid_ptr: LPCWSTR, len_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    if let Err(error) = tcp_stream_exists(&uuid) {
+    if let Err(error) = stream_exists(&uuid) {
         return cstring::to_widechar_ptr(error.to_string());
     }
 
@@ -108,13 +114,13 @@ pub extern "stdcall" fn recv_exact(uuid_ptr: LPCWSTR, len_ptr: LPCWSTR) -> LPCWS
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    let tcp_stream = tcp_thread.tcp_stream.take().unwrap();
+    let stream = tcp_thread.stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
     let handler = thread::spawn(move || {
         flag.alive();
-        tcp::read_exact(tcp_stream, len).map_err(GlobalError::from)
+        tcp::read_exact(stream, len).map_err(GlobalError::from)
     });
 
     tcp_thread.thread_control = control;
@@ -127,7 +133,7 @@ pub extern "stdcall" fn recv_exact(uuid_ptr: LPCWSTR, len_ptr: LPCWSTR) -> LPCWS
 #[no_mangle]
 pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    if let Err(error) = tcp_stream_exists(&uuid) {
+    if let Err(error) = stream_exists(&uuid) {
         return cstring::to_widechar_ptr(error.to_string());
     }
 
@@ -140,13 +146,13 @@ pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPC
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    let tcp_stream = tcp_thread.tcp_stream.take().unwrap();
+    let stream = tcp_thread.stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
     let handler = thread::spawn(move || {
         flag.alive();
-        tcp::read_until(tcp_stream, until).map_err(GlobalError::from)
+        tcp::read_until(stream, until).map_err(GlobalError::from)
     });
 
     tcp_thread.thread_control = control;
@@ -159,7 +165,7 @@ pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPC
 #[no_mangle]
 pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    if let Err(error) = tcp_stream_exists(&uuid) {
+    if let Err(error) = stream_exists(&uuid) {
         return cstring::to_widechar_ptr(error.to_string());
     }
 
@@ -169,13 +175,13 @@ pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    let tcp_stream = tcp_thread.tcp_stream.take().unwrap();
+    let stream = tcp_thread.stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
     let handler = thread::spawn(move || {
         flag.alive();
-        tcp::read_to_end(tcp_stream).map_err(GlobalError::from)
+        tcp::read_to_end(stream).map_err(GlobalError::from)
     });
 
     tcp_thread.thread_control = control;
@@ -216,7 +222,7 @@ pub extern "stdcall" fn task_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
 
     let thread_result = unwrap_or_err!(tcp_thread.join_handler.take().unwrap().join().unwrap());
 
-    tcp_thread.tcp_stream = Some(thread_result.tcp_stream);
+    tcp_thread.stream = Some(thread_result.stream);
 
     match tcp_thread.current_task {
         Task::RecvExact | Task::RecvUntil | Task::RecvEnd => {
@@ -224,21 +230,7 @@ pub extern "stdcall" fn task_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
             return cstring::to_widechar_ptr(&result);
         }
 
-        Task::Connect => {
-            #[allow(unused_must_use)]
-            {
-                tcp_thread
-                    .tcp_stream
-                    .as_ref()
-                    .unwrap()
-                    .set_read_timeout(tcp_thread.timeout);
-                tcp_thread
-                    .tcp_stream
-                    .as_ref()
-                    .unwrap()
-                    .set_write_timeout(tcp_thread.timeout);
-            }
-        }
+        Task::Connect => tcp_thread.tcp_stream = thread_result.tcp_stream,
         _ => (),
     };
 
@@ -319,18 +311,18 @@ fn is_task_running(uuid: &str) -> Result<(), DllError> {
     Ok(())
 }
 
-fn tcp_stream_exists(uuid: &str) -> Result<(), DllError> {
-    let has_tcp_stream = {
+fn stream_exists(uuid: &str) -> Result<(), DllError> {
+    let has_stream = {
         let r = CACHE.read().unwrap();
         let tcp_thread = match r.get(uuid) {
             Some(stream) => stream,
             None => return Err(DllError::ConnectionNotFound),
         };
 
-        tcp_thread.tcp_stream.is_some()
+        tcp_thread.stream.is_some()
     };
 
-    if !has_tcp_stream {
+    if !has_stream {
         return Err(DllError::NoTcpStream);
     }
 

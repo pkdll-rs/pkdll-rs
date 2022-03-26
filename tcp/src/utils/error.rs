@@ -1,4 +1,7 @@
-use std::{io, net};
+use std::{
+    io,
+    net::{self, TcpStream},
+};
 
 use thiserror::Error;
 
@@ -62,4 +65,10 @@ pub enum GlobalError {
 
     #[error(transparent)]
     ProxyError(#[from] ProxyError),
+
+    #[error(transparent)]
+    TlsError(#[from] native_tls::Error),
+
+    #[error(transparent)]
+    HandshakeError(#[from] native_tls::HandshakeError<TcpStream>),
 }

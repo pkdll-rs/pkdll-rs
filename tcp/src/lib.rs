@@ -1,9 +1,7 @@
 use std::{
     collections::BTreeMap,
-    net::TcpStream,
-    sync::{Arc, RwLock},
-    thread::JoinHandle,
-    time::Duration,
+    sync::RwLock,
+    thread::JoinHandle, net::TcpStream,
 };
 
 mod dllmain;
@@ -30,22 +28,29 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[macro_use]
 extern crate lazy_static;
 
+use std::io::{Read as IoRead, Write as IoWrite};
+
+pub trait ReadAndWrite: IoRead + IoWrite + Send + Sync {}
+
+impl<T: IoRead + IoWrite + Send + Sync> ReadAndWrite for T {}
+
 pub struct ThreadResult {
-    tcp_stream: TcpStream,
+    tcp_stream: Option<TcpStream>,
+    stream: Box<dyn ReadAndWrite>,
     buffer: Option<Vec<u8>>,
 }
 
 struct TcpThread {
     tcp_stream: Option<TcpStream>,
+    stream: Option<Box<dyn ReadAndWrite>>,
     join_handler: Option<JoinHandle<Result<ThreadResult, GlobalError>>>,
     thread_control: thread_control::Control,
     current_task: Task,
-    timeout: Option<Duration>,
 }
 
 lazy_static! {
-    static ref CACHE: Arc<RwLock<BTreeMap<String, TcpThread>>> = {
+    static ref CACHE: RwLock<BTreeMap<String, TcpThread>> = {
         let cache = BTreeMap::new();
-        Arc::new(RwLock::new(cache))
+        RwLock::new(cache)
     };
 }

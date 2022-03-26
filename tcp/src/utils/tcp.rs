@@ -7,9 +7,10 @@ use std::{
 use crate::{
     error::{ConnectionError, GlobalError},
     proxy::{self, Proxy, ProxyType},
-    ThreadResult,
+    ReadAndWrite, ThreadResult,
 };
 
+use native_tls::TlsConnector;
 use socks::ToTargetAddr;
 
 pub fn connect(
@@ -17,6 +18,7 @@ pub fn connect(
     proxy: Option<Proxy>,
     timeout: Option<Duration>,
     proxy_resolve: bool,
+    use_tls: bool,
 ) -> Result<ThreadResult, GlobalError> {
     let stream = match proxy {
         Some(ref proxy) => {
@@ -61,55 +63,78 @@ pub fn connect(
         }
     };
 
+    stream.set_read_timeout(timeout)?;
+    stream.set_write_timeout(timeout)?;
+
+    if use_tls {
+        let connector = TlsConnector::builder()
+            .danger_accept_invalid_certs(true)
+            .danger_accept_invalid_hostnames(true)
+            .use_sni(false)
+            .build()?;
+
+        let tls_stream = connector.connect("", stream.try_clone()?)?;
+        return Ok(ThreadResult {
+            tcp_stream: Some(stream),
+            stream: Box::new(tls_stream),
+            buffer: None,
+        });
+    }
+
     Ok(ThreadResult {
-        tcp_stream: stream,
+        tcp_stream: Some(stream.try_clone()?),
+        stream: Box::new(stream),
         buffer: None,
     })
 }
 
-pub fn send_data(mut tcp_stream: TcpStream, data: Vec<u8>) -> io::Result<ThreadResult> {
-    tcp_stream.write_all(&data)?;
-    tcp_stream.flush()?;
+pub fn send_data(mut stream: Box<dyn ReadAndWrite>, data: Vec<u8>) -> io::Result<ThreadResult> {
+    stream.write_all(&data)?;
+    stream.flush()?;
     Ok(ThreadResult {
-        tcp_stream,
+        tcp_stream: None,
+        stream,
         buffer: None,
     })
 }
 
-pub fn read_exact(mut tcp_stream: TcpStream, len: usize) -> io::Result<ThreadResult> {
+pub fn read_exact(mut stream: Box<dyn ReadAndWrite>, len: usize) -> io::Result<ThreadResult> {
     let mut buf = vec![0u8; len];
-    tcp_stream.read_exact(&mut buf)?;
+    stream.read_exact(&mut buf)?;
     Ok(ThreadResult {
-        tcp_stream,
+        tcp_stream: None,
+        stream,
         buffer: Some(buf),
     })
 }
 
-pub fn read_to_end(mut tcp_stream: TcpStream) -> io::Result<ThreadResult> {
+pub fn read_to_end(mut stream: Box<dyn ReadAndWrite>) -> io::Result<ThreadResult> {
     let mut buf = Vec::new();
-    if let Err(error) = tcp_stream.read_to_end(&mut buf) {
+    if let Err(error) = stream.read_to_end(&mut buf) {
         if error.kind() != io::ErrorKind::TimedOut {
             return Err(error);
         }
     }
 
     Ok(ThreadResult {
-        tcp_stream,
+        tcp_stream: None,
+        stream,
         buffer: Some(buf),
     })
 }
 
-pub fn read_until(tcp_stream: TcpStream, until: Vec<u8>) -> io::Result<ThreadResult> {
+pub fn read_until(mut stream: Box<dyn ReadAndWrite>, until: Vec<u8>) -> io::Result<ThreadResult> {
     let mut buf = Vec::new();
 
     if until.len() > 1 {
-        buf = _read_until(BufReader::new(&tcp_stream), &until)?;
+        buf = _read_until(BufReader::new(&mut stream), &until)?;
     } else {
-        BufReader::new(&tcp_stream).read_until(until[0], &mut buf)?;
+        BufReader::new(&mut stream).read_until(until[0], &mut buf)?;
     }
 
     Ok(ThreadResult {
-        tcp_stream,
+        tcp_stream: None,
+        stream,
         buffer: Some(buf),
     })
 }
