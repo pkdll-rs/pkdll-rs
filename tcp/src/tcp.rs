@@ -18,10 +18,12 @@ pub extern "stdcall" fn connect_ip(
     addr_ptr: LPCWSTR,
     proxy_addr_ptr: LPCWSTR,
     timeout_ptr: LPCWSTR,
+    proxy_resolve_ptr: LPCWSTR,
 ) -> LPCWSTR {
     let addr = cstring::from_widechar_ptr(addr_ptr);
     let proxy_addr = cstring::from_widechar_ptr(proxy_addr_ptr);
     let timeout = cstring::from_widechar_ptr(timeout_ptr);
+    let proxy_resolve: bool = cstring::from_widechar_ptr(proxy_resolve_ptr).parse().unwrap_or_default();
 
     let timeout: u64 = unwrap_or_err!(timeout.parse());
     let timeout = match timeout {
@@ -39,7 +41,7 @@ pub extern "stdcall" fn connect_ip(
 
     let handler = thread::spawn(move || {
         flag.alive();
-        tcp::connect(addr, proxy, timeout).map_err(GlobalError::from)
+        tcp::connect(addr, proxy, timeout, proxy_resolve).map_err(GlobalError::from)
     });
 
     let tcp_thread = TcpThread {

@@ -1,4 +1,4 @@
-use socks::Authentication;
+use socks::{Authentication, ToTargetAddr};
 
 use crate::error::{self, ProxyError};
 use std::{
@@ -63,14 +63,15 @@ impl Proxy {
     }
 }
 
-pub fn connect_http<T>(
+pub fn connect_http<T, U>(
     proxy: T,
-    target: &str,
+    target: U,
     auth: Authentication,
     timeout: Option<Duration>,
 ) -> Result<TcpStream, error::GlobalError>
 where
     T: ToSocketAddrs,
+    U: ToTargetAddr,
 {
     let mut socket = if let Some(timeout) = timeout {
         let addr = proxy.to_socket_addrs().unwrap().next().unwrap();
@@ -79,7 +80,10 @@ where
         TcpStream::connect(proxy)?
     };
 
-    let target = target.split_once(':').unwrap_or_default();
+    let target = match target.to_target_addr()? {
+        socks::TargetAddr::Ip(target) => (target.ip().to_string(), target.port().to_string()),
+        socks::TargetAddr::Domain(domain, port) => (domain, port.to_string()),
+    };
 
     let auth = match auth {
         Authentication::None => "".to_owned(),

@@ -10,16 +10,14 @@ use crate::{
     ThreadResult,
 };
 
+use socks::ToTargetAddr;
+
 pub fn connect(
     target_str: String,
     proxy: Option<Proxy>,
     timeout: Option<Duration>,
+    proxy_resolve: bool,
 ) -> Result<ThreadResult, GlobalError> {
-    let target = match target_str.to_socket_addrs()?.next() {
-        Some(target) => target,
-        None => return Err(ConnectionError::NotValidAddrA.into()),
-    };
-
     let stream = match proxy {
         Some(ref proxy) => {
             let mut auth = socks::Authentication::None;
@@ -29,6 +27,16 @@ pub fn connect(
                     password: &creds.password,
                 }
             }
+
+            let target = match proxy_resolve {
+                true => target_str.as_str().to_target_addr()?,
+                false => match target_str.to_socket_addrs()?.next() {
+                    Some(target) => target,
+                    None => return Err(ConnectionError::NotValidAddrA.into()),
+                }
+                .to_target_addr()?,
+            };
+
             match proxy._type {
                 ProxyType::SOCKS4 => {
                     socks::Socks4Stream::connect(proxy.addr, target, "", timeout)?.into_inner()
@@ -36,14 +44,21 @@ pub fn connect(
                 ProxyType::SOCKS5 => {
                     socks::Socks5Stream::connect(proxy.addr, target, auth, timeout)?.into_inner()
                 }
-                ProxyType::HTTP => proxy::connect_http(proxy.addr, &target_str, auth, timeout)?,
+                ProxyType::HTTP => proxy::connect_http(proxy.addr, target, auth, timeout)?,
             }
         }
 
-        None => match timeout {
-            Some(timeout) => TcpStream::connect_timeout(&target, timeout)?,
-            None => TcpStream::connect(target)?,
-        },
+        None => {
+            let target = match target_str.to_socket_addrs()?.next() {
+                Some(target) => target,
+                None => return Err(ConnectionError::NotValidAddrA.into()),
+            };
+
+            match timeout {
+                Some(timeout) => TcpStream::connect_timeout(&target, timeout)?,
+                None => TcpStream::connect(target)?,
+            }
+        }
     };
 
     Ok(ThreadResult {
