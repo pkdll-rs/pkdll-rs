@@ -7,7 +7,7 @@ use std::{
 use crate::{
     error::{ConnectionError, GlobalError},
     proxy::{self, Proxy, ProxyType},
-    ReadAndWrite, ThreadResult,
+    traits::{ReadAndWrite, ThreadResult},
 };
 
 use native_tls::TlsConnector;
@@ -46,7 +46,7 @@ pub fn connect(
                 ProxyType::SOCKS5 => {
                     socks::Socks5Stream::connect(proxy.addr, target, auth, timeout)?.into_inner()
                 }
-                ProxyType::HTTP => proxy::connect_http(proxy.addr, target, auth, timeout)?,
+                ProxyType::Http => proxy::connect_http(proxy.addr, target, auth, timeout)?,
             }
         }
 

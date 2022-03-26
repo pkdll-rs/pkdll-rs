@@ -58,17 +58,17 @@ pub enum DllError {
 #[derive(Debug, Error)]
 pub enum GlobalError {
     #[error(transparent)]
-    IOError(#[from] io::Error),
+    IO(#[from] io::Error),
 
     #[error(transparent)]
-    ConnectionError(#[from] ConnectionError),
+    Connection(#[from] ConnectionError),
 
     #[error(transparent)]
-    ProxyError(#[from] ProxyError),
+    Proxy(#[from] ProxyError),
 
     #[error(transparent)]
-    TlsError(#[from] native_tls::Error),
+    Tls(#[from] native_tls::Error),
 
     #[error(transparent)]
-    HandshakeError(#[from] native_tls::HandshakeError<TcpStream>),
+    Handshake(#[from] native_tls::HandshakeError<TcpStream>),
 }

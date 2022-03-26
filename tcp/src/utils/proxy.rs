@@ -10,7 +10,7 @@ use std::{
 pub enum ProxyType {
     SOCKS4,
     SOCKS5,
-    HTTP,
+    Http,
 }
 
 pub struct Creds {
@@ -46,7 +46,7 @@ impl Proxy {
         let _type = match splitted[0] {
             "SOCKS4" => ProxyType::SOCKS4,
             "SOCKS5" => ProxyType::SOCKS5,
-            "HTTPS" => ProxyType::HTTP,
+            "HTTPS" => ProxyType::Http,
             _ => return Err(ProxyError::UnsupportedType(splitted[0].to_owned())),
         };
 
