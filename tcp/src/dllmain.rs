@@ -8,7 +8,7 @@ use winapi::um::{consoleapi::AllocConsole, wincon::FreeConsole};
 const AUTHOR: &[u16] = wchz!("_Skill_");
 const VER: &[u16] = wchz!("0.1");
 const DESC: &[u16] = wchz!("TCP с поддержкой прокси");
-const DEBUG: bool = true;
+const DEBUG: bool = false;
 
 #[no_mangle]
 extern "stdcall" fn info_getAuthor() -> LPCWSTR {
