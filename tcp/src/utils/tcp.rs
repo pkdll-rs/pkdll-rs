@@ -73,16 +73,14 @@ pub fn connect(
             .use_sni(false)
             .build()?;
 
-        let tls_stream = connector.connect("", stream.try_clone()?)?;
+        let tls_stream = connector.connect("", stream)?;
         return Ok(ThreadResult {
-            tcp_stream: Some(stream),
             stream: Box::new(tls_stream),
             buffer: None,
         });
     }
 
     Ok(ThreadResult {
-        tcp_stream: Some(stream.try_clone()?),
         stream: Box::new(stream),
         buffer: None,
     })
@@ -92,7 +90,6 @@ pub fn send_data(mut stream: Box<dyn ReadAndWrite>, data: Vec<u8>) -> io::Result
     stream.write_all(&data)?;
     stream.flush()?;
     Ok(ThreadResult {
-        tcp_stream: None,
         stream,
         buffer: None,
     })
@@ -102,7 +99,6 @@ pub fn read_exact(mut stream: Box<dyn ReadAndWrite>, len: usize) -> io::Result<T
     let mut buf = vec![0u8; len];
     stream.read_exact(&mut buf)?;
     Ok(ThreadResult {
-        tcp_stream: None,
         stream,
         buffer: Some(buf),
     })
@@ -117,7 +113,6 @@ pub fn read_to_end(mut stream: Box<dyn ReadAndWrite>) -> io::Result<ThreadResult
     }
 
     Ok(ThreadResult {
-        tcp_stream: None,
         stream,
         buffer: Some(buf),
     })
@@ -133,7 +128,6 @@ pub fn read_until(mut stream: Box<dyn ReadAndWrite>, until: Vec<u8>) -> io::Resu
     }
 
     Ok(ThreadResult {
-        tcp_stream: None,
         stream,
         buffer: Some(buf),
     })

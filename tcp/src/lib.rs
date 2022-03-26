@@ -1,7 +1,5 @@
 use std::{
-    collections::BTreeMap,
-    sync::RwLock,
-    thread::JoinHandle, net::TcpStream,
+    collections::BTreeMap, io, net::TcpStream, sync::RwLock, thread::JoinHandle, time::Duration,
 };
 
 mod dllmain;
@@ -16,6 +14,7 @@ mod utils {
     pub mod tcp;
 }
 
+use native_tls::TlsStream;
 use utils::{error::GlobalError, statuses::Task};
 
 pub use crate::utils::*;
@@ -30,18 +29,41 @@ extern crate lazy_static;
 
 use std::io::{Read as IoRead, Write as IoWrite};
 
-pub trait ReadAndWrite: IoRead + IoWrite + Send + Sync {}
+pub trait SetTimeout {
+    fn set_read_timeout(&self, dur: Option<Duration>) -> io::Result<()>;
+    fn set_write_timeout(&self, dur: Option<Duration>) -> io::Result<()>;
+}
 
-impl<T: IoRead + IoWrite + Send + Sync> ReadAndWrite for T {}
+pub trait ReadAndWrite: IoRead + IoWrite + Send + Sync + SetTimeout {}
+
+impl<T: IoRead + IoWrite + Send + Sync + SetTimeout> ReadAndWrite for T {}
+
+impl SetTimeout for TlsStream<TcpStream> {
+    fn set_read_timeout(&self, dur: Option<Duration>) -> io::Result<()> {
+        self.get_ref().set_read_timeout(dur)
+    }
+
+    fn set_write_timeout(&self, dur: Option<Duration>) -> io::Result<()> {
+        self.get_ref().set_write_timeout(dur)
+    }
+}
+
+impl SetTimeout for TcpStream {
+    fn set_read_timeout(&self, dur: Option<Duration>) -> io::Result<()> {
+        self.set_read_timeout(dur)
+    }
+
+    fn set_write_timeout(&self, dur: Option<Duration>) -> io::Result<()> {
+        self.set_read_timeout(dur)
+    }
+}
 
 pub struct ThreadResult {
-    tcp_stream: Option<TcpStream>,
     stream: Box<dyn ReadAndWrite>,
     buffer: Option<Vec<u8>>,
 }
 
 struct TcpThread {
-    tcp_stream: Option<TcpStream>,
     stream: Option<Box<dyn ReadAndWrite>>,
     join_handler: Option<JoinHandle<Result<ThreadResult, GlobalError>>>,
     thread_control: thread_control::Control,

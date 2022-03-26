@@ -51,7 +51,6 @@ pub extern "stdcall" fn connect_ip(
     });
 
     let tcp_thread = TcpThread {
-        tcp_stream: None,
         stream: None,
         join_handler: Some(handler),
         thread_control: control,
@@ -229,8 +228,6 @@ pub extern "stdcall" fn task_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
             let result = base64::encode(thread_result.buffer.unwrap());
             return cstring::to_widechar_ptr(&result);
         }
-
-        Task::Connect => tcp_thread.tcp_stream = thread_result.tcp_stream,
         _ => (),
     };
 
@@ -248,17 +245,17 @@ pub extern "stdcall" fn set_read_timeout(uuid_ptr: LPCWSTR, timeout_ptr: LPCWSTR
     };
 
     let r = unwrap_or_err!(CACHE.read());
-    let stream = match r.get(&uuid) {
-        Some(stream) => stream,
+    let tcp_thread = match r.get(&uuid) {
+        Some(tcp_thread) => tcp_thread,
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    if stream.tcp_stream.is_none() {
+    if tcp_thread.stream.is_none() {
         return cstring::to_widechar_ptr(DllError::NoTcpStream.to_string());
     }
 
-    unwrap_or_err!(stream
-        .tcp_stream
+    unwrap_or_err!(tcp_thread
+        .stream
         .as_ref()
         .unwrap()
         .set_read_timeout(timeout));
@@ -281,15 +278,11 @@ pub extern "stdcall" fn set_write_timeout(uuid_ptr: LPCWSTR, timeout_ptr: LPCWST
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    if stream.tcp_stream.is_none() {
+    if stream.stream.is_none() {
         return cstring::to_widechar_ptr(DllError::NoTcpStream.to_string());
     }
 
-    unwrap_or_err!(stream
-        .tcp_stream
-        .as_ref()
-        .unwrap()
-        .set_write_timeout(timeout));
+    unwrap_or_err!(stream.stream.as_ref().unwrap().set_write_timeout(timeout));
     cstring::to_widechar_ptr("OK")
 }
 
@@ -297,7 +290,7 @@ fn is_task_running(uuid: &str) -> Result<(), DllError> {
     let has_join_handler = {
         let r = CACHE.read().unwrap();
         let tcp_thread = match r.get(uuid) {
-            Some(stream) => stream,
+            Some(tcp_thread) => tcp_thread,
             None => return Err(DllError::ConnectionNotFound),
         };
 
@@ -315,7 +308,7 @@ fn stream_exists(uuid: &str) -> Result<(), DllError> {
     let has_stream = {
         let r = CACHE.read().unwrap();
         let tcp_thread = match r.get(uuid) {
-            Some(stream) => stream,
+            Some(tcp_thread) => tcp_thread,
             None => return Err(DllError::ConnectionNotFound),
         };
 
