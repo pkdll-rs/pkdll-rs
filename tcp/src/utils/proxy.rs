@@ -1,9 +1,16 @@
-use crate::errors::ProxyError;
-use std::net::{SocketAddr, ToSocketAddrs};
+use socks::Authentication;
+
+use crate::error::{self, ProxyError};
+use std::{
+    io::{Read, Write},
+    net::{SocketAddr, TcpStream, ToSocketAddrs},
+    time::Duration,
+};
 
 pub enum ProxyType {
     SOCKS4,
     SOCKS5,
+    HTTP,
 }
 
 pub struct Creds {
@@ -39,6 +46,7 @@ impl Proxy {
         let _type = match splitted[0] {
             "SOCKS4" => ProxyType::SOCKS4,
             "SOCKS5" => ProxyType::SOCKS5,
+            "HTTPS" => ProxyType::HTTP,
             _ => return Err(ProxyError::UnsupportedType(splitted[0].to_owned())),
         };
 
@@ -52,5 +60,74 @@ impl Proxy {
         }
 
         Ok(Proxy { _type, addr, creds })
+    }
+}
+
+pub fn connect_http<T>(
+    proxy: T,
+    target: &str,
+    auth: Authentication,
+    timeout: Option<Duration>,
+) -> Result<TcpStream, error::GlobalError>
+where
+    T: ToSocketAddrs,
+{
+    let mut socket = if let Some(timeout) = timeout {
+        let addr = proxy.to_socket_addrs().unwrap().next().unwrap();
+        TcpStream::connect_timeout(&addr, timeout)?
+    } else {
+        TcpStream::connect(proxy)?
+    };
+
+    let target = target.split_once(':').unwrap_or_default();
+
+    let auth = match auth {
+        Authentication::None => "".to_owned(),
+        Authentication::Password { username, password } => {
+            let creds = base64::encode(&format!("{}:{}", username, password));
+
+            format!("Proxy-Authorization: basic {}\r\n", creds)
+        }
+    };
+
+    let connect_req = format!(
+        "CONNECT {}:{} HTTP/1.1\r\n\
+Host: {}:{}\r\n\
+User-Agent: something/1.0.0\r\n\
+Proxy-Connection: Keep-Alive\r\n\
+{}\
+\r\n",
+        target.0, target.1, target.0, target.1, auth,
+    );
+
+    socket.set_read_timeout(timeout)?;
+    socket.set_write_timeout(timeout)?;
+
+    socket.write_all(connect_req.as_bytes())?;
+    let mut proxy_response = Vec::new();
+
+    loop {
+        let mut buf = vec![0; 256];
+        let total = socket.read(&mut buf)?;
+        proxy_response.append(&mut buf);
+        if total < 256 {
+            break;
+        }
+    }
+
+    let response_string = String::from_utf8_lossy(&proxy_response);
+    let top_line = response_string
+        .lines()
+        .next()
+        .ok_or(error::ProxyError::ProxyConnect)?;
+    let status_code = top_line
+        .split_whitespace()
+        .nth(1)
+        .ok_or(error::ProxyError::ProxyConnect)?;
+
+    match status_code {
+        "200" => Ok(socket),
+        "401" | "407" => Err(error::ProxyError::ProxyUnauthorized.into()),
+        _ => Err(error::ProxyError::ProxyConnect.into()),
     }
 }

@@ -1,14 +1,17 @@
-use std::{
-    io::{BufRead, BufReader, Read, Write},
-    sync::Arc,
-    thread,
-    time::Duration,
-};
+use std::{thread, time::Duration};
 
 use uuid::Uuid;
 use winapi::um::winnt::LPCWSTR;
 
-use crate::{cstring, errors::DllError, proxy::Proxy, unwrap_or_err, utils::tcp, TcpThread, CACHE};
+use crate::{
+    cstring,
+    error::{DllError, GlobalError},
+    proxy::Proxy,
+    statuses::DllStatus,
+    unwrap_or_err,
+    utils::tcp,
+    Task, TcpThread, CACHE,
+};
 
 #[no_mangle]
 pub extern "stdcall" fn connect_ip(
@@ -36,220 +39,148 @@ pub extern "stdcall" fn connect_ip(
 
     let handler = thread::spawn(move || {
         flag.alive();
-        tcp::connect(addr, proxy, timeout)
+        tcp::connect(addr, proxy, timeout).map_err(GlobalError::from)
     });
 
-    let stream = TcpThread {
+    let tcp_thread = TcpThread {
         tcp_stream: None,
-        join_handler_connect: Some(handler),
-        join_handler_write: None,
+        join_handler: Some(handler),
         thread_control: control,
+        current_task: Task::Connect,
+        timeout,
     };
 
     let uuid = Uuid::new_v4().to_hyphenated().to_string();
 
     let mut w = unwrap_or_err!(CACHE.write());
-    w.insert(uuid.clone(), stream);
+    w.insert(uuid.clone(), tcp_thread);
 
     cstring::to_widechar_ptr(uuid)
 }
 
 #[no_mangle]
-pub extern "stdcall" fn connect_ip_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
-    let uuid = cstring::from_widechar_ptr(uuid_ptr);
-
-    {
-        let mut r = unwrap_or_err!(CACHE.write());
-        let mut stream = match r.get_mut(&uuid) {
-            Some(stream) => stream,
-            None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
-        };
-
-        if !stream.thread_control.is_done() {
-            return cstring::to_widechar_ptr(DllError::NotYetReady.to_string());
-        }
-
-        stream.tcp_stream = Some(unwrap_or_err!(stream
-            .join_handler_connect
-            .take()
-            .unwrap()
-            .join()
-            .unwrap()));
-    }
-    cstring::to_widechar_ptr("CONNECTED")
-}
-
-#[no_mangle]
-pub extern "stdcall" fn set_read_timeout(uuid_ptr: LPCWSTR, timeout_ptr: LPCWSTR) -> LPCWSTR {
-    let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    let timeout = cstring::from_widechar_ptr(timeout_ptr);
-
-    let timeout: u64 = unwrap_or_err!(timeout.parse());
-
-    let r = unwrap_or_err!(CACHE.read());
-    let stream = match r.get(&uuid) {
-        Some(stream) => stream,
-        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
-    };
-
-    if stream.tcp_stream.is_none() {
-        return cstring::to_widechar_ptr(DllError::NotYetConnected.to_string());
-    }
-
-    unwrap_or_err!(stream
-        .tcp_stream
-        .as_ref()
-        .unwrap()
-        .set_read_timeout(Some(Duration::from_millis(timeout))));
-    cstring::to_widechar_ptr("OK")
-}
-
-#[no_mangle]
-pub extern "stdcall" fn set_write_timeout(uuid_ptr: LPCWSTR, timeout_ptr: LPCWSTR) -> LPCWSTR {
-    let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    let timeout = cstring::from_widechar_ptr(timeout_ptr);
-
-    let timeout: u64 = unwrap_or_err!(timeout.parse());
-
-    let r = unwrap_or_err!(CACHE.read());
-    let stream = match r.get(&uuid) {
-        Some(stream) => stream,
-        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
-    };
-
-    if stream.tcp_stream.is_none() {
-        return cstring::to_widechar_ptr(DllError::NotYetConnected.to_string());
-    }
-
-    unwrap_or_err!(stream
-        .tcp_stream
-        .as_ref()
-        .unwrap()
-        .set_write_timeout(Some(Duration::from_millis(timeout))));
-    cstring::to_widechar_ptr("OK")
-}
-
-#[no_mangle]
 pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
+    if let Err(error) = tcp_stream_exists(&uuid) {
+        return cstring::to_widechar_ptr(error.to_string());
+    }
+
     let data = cstring::from_widechar_ptr(data_ptr);
     let data = unwrap_or_err!(base64::decode(data));
 
-    let mut r = unwrap_or_err!(CACHE.write());
-    let mut stream = match r.get_mut(&uuid) {
-        Some(stream) => stream,
+    let mut w = unwrap_or_err!(CACHE.write());
+    let mut tcp_thread = match w.get_mut(&uuid) {
+        Some(tcp_thread) => tcp_thread,
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    let tcp_stream = stream.tcp_stream.take().unwrap();
+    let tcp_stream = tcp_thread.tcp_stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
     let handler = thread::spawn(move || {
         flag.alive();
-        tcp::send_data(tcp_stream, data)
+        tcp::send_data(tcp_stream, data).map_err(GlobalError::from)
     });
 
-    stream.thread_control = control;
-    stream.join_handler_write = Some(handler);
+    tcp_thread.thread_control = control;
+    tcp_thread.join_handler = Some(handler);
+    tcp_thread.current_task = Task::SendData;
 
-    cstring::to_widechar_ptr("THREAD_SPAWNED")
+    cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
 }
-
-#[no_mangle]
-pub extern "stdcall" fn send_data_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
-    let uuid = cstring::from_widechar_ptr(uuid_ptr);
-
-    {
-        let mut r = unwrap_or_err!(CACHE.write());
-        let mut stream = match r.get_mut(&uuid) {
-            Some(stream) => stream,
-            None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
-        };
-
-        if !stream.thread_control.is_done() {
-            return cstring::to_widechar_ptr(DllError::NotYetReady.to_string());
-        }
-
-        stream.tcp_stream = Some(unwrap_or_err!(stream
-            .join_handler_write
-            .take()
-            .unwrap()
-            .join()
-            .unwrap()));
-    }
-    cstring::to_widechar_ptr("SENT")
-}
-
-/*
 
 #[no_mangle]
 pub extern "stdcall" fn recv_exact(uuid_ptr: LPCWSTR, len_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    let len = cstring::from_widechar_ptr(len_ptr);
+    if let Err(error) = tcp_stream_exists(&uuid) {
+        return cstring::to_widechar_ptr(error.to_string());
+    }
 
+    let len = cstring::from_widechar_ptr(len_ptr);
     let len: usize = unwrap_or_err!(len.parse());
 
-    let r = unwrap_or_err!(CACHE.read());
-    let mut stream = match r.get(&uuid) {
-        Some(stream) => stream,
-        None => {
-            let mut err_string = "connection not found by given uuid".to_string();
-            err_string.insert_str(0, crate::ERR);
-            return cstring::to_widechar_ptr(err_string);
-        }
+    let mut w = unwrap_or_err!(CACHE.write());
+    let mut tcp_thread = match w.get_mut(&uuid) {
+        Some(tcp_thread) => tcp_thread,
+        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    let mut buf = vec![0u8; len];
-    unwrap_or_err!(stream.read_exact(&mut buf));
-    cstring::to_widechar_ptr(base64::encode(buf))
+    let tcp_stream = tcp_thread.tcp_stream.take().unwrap();
+
+    let (flag, control) = thread_control::make_pair();
+
+    let handler = thread::spawn(move || {
+        flag.alive();
+        tcp::read_exact(tcp_stream, len).map_err(GlobalError::from)
+    });
+
+    tcp_thread.thread_control = control;
+    tcp_thread.join_handler = Some(handler);
+    tcp_thread.current_task = Task::RecvExact;
+
+    cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
 }
 
 #[no_mangle]
 pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    let until = cstring::from_widechar_ptr(until_ptr);
-
-    let until = unwrap_or_err!(base64::decode(until));
-
-    let r = unwrap_or_err!(CACHE.read());
-    let stream = match r.get(&uuid) {
-        Some(stream) => stream,
-        None => {
-            let mut err_string = "connection not found by given uuid".to_string();
-            err_string.insert_str(0, crate::ERR);
-            return cstring::to_widechar_ptr(err_string);
-        }
-    };
-
-    if until.len() > 1 {
-        let data = unwrap_or_err!(read_until(BufReader::new(stream), &until));
-        return cstring::to_widechar_ptr(base64::encode(data));
+    if let Err(error) = tcp_stream_exists(&uuid) {
+        return cstring::to_widechar_ptr(error.to_string());
     }
 
-    let mut buf = Vec::new();
+    let until = cstring::from_widechar_ptr(until_ptr);
+    let until = unwrap_or_err!(base64::decode(until));
 
-    unwrap_or_err!(BufReader::new(stream).read_until(until[0], &mut buf));
-    cstring::to_widechar_ptr(base64::encode(buf))
+    let mut w = unwrap_or_err!(CACHE.write());
+    let mut tcp_thread = match w.get_mut(&uuid) {
+        Some(tcp_thread) => tcp_thread,
+        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
+    };
+
+    let tcp_stream = tcp_thread.tcp_stream.take().unwrap();
+
+    let (flag, control) = thread_control::make_pair();
+
+    let handler = thread::spawn(move || {
+        flag.alive();
+        tcp::read_until(tcp_stream, until).map_err(GlobalError::from)
+    });
+
+    tcp_thread.thread_control = control;
+    tcp_thread.join_handler = Some(handler);
+    tcp_thread.current_task = Task::RecvUntil;
+
+    cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
 }
 
 #[no_mangle]
 pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
+    if let Err(error) = tcp_stream_exists(&uuid) {
+        return cstring::to_widechar_ptr(error.to_string());
+    }
 
-    let r = unwrap_or_err!(CACHE.read());
-    let mut stream = match r.get(&uuid) {
-        Some(stream) => stream,
-        None => {
-            let mut err_string = "connection not found by given uuid".to_string();
-            err_string.insert_str(0, crate::ERR);
-            return cstring::to_widechar_ptr(err_string);
-        }
+    let mut w = unwrap_or_err!(CACHE.write());
+    let mut tcp_thread = match w.get_mut(&uuid) {
+        Some(tcp_thread) => tcp_thread,
+        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
-    let mut buf = Vec::new();
-    unwrap_or_err!(stream.read_to_end(&mut buf));
-    cstring::to_widechar_ptr(base64::encode(buf))
+    let tcp_stream = tcp_thread.tcp_stream.take().unwrap();
+
+    let (flag, control) = thread_control::make_pair();
+
+    let handler = thread::spawn(move || {
+        flag.alive();
+        tcp::read_to_end(tcp_stream).map_err(GlobalError::from)
+    });
+
+    tcp_thread.thread_control = control;
+    tcp_thread.join_handler = Some(handler);
+    tcp_thread.current_task = Task::RecvEnd;
+
+    cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
 }
 
 #[no_mangle]
@@ -258,28 +189,148 @@ pub extern "stdcall" fn disconnect(uuid_ptr: LPCWSTR) -> LPCWSTR {
 
     let mut mx = unwrap_or_err!(CACHE.write());
     match mx.remove(&uuid) {
-        Some(_) => cstring::to_widechar_ptr("OK"),
-        None => {
-            let mut err_string = "connection not found by given uuid".to_string();
-            err_string.insert_str(0, crate::ERR);
-            cstring::to_widechar_ptr(err_string)
-        }
+        Some(_) => cstring::to_widechar_ptr(DllStatus::Ok.as_str()),
+        None => cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     }
 }
 
-fn read_until<R: Read>(mut stream: R, delim: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    let mut data = vec![];
-    loop {
-        let mut buf = [0u8; 1];
-        let n = stream.read(&mut buf)?;
-        if n != 1 {
-            break;
-        }
-        data.push(buf[0]);
-        if data.len() >= delim.len() && &data[data.len() - delim.len()..] == delim {
-            return Ok(data);
-        }
+#[no_mangle]
+pub extern "stdcall" fn task_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
+    let uuid = cstring::from_widechar_ptr(uuid_ptr);
+
+    if let Err(error) = is_task_running(&uuid) {
+        return cstring::to_widechar_ptr(error.to_string());
     }
-    unimplemented!()
+
+    let mut r = unwrap_or_err!(CACHE.write());
+    let mut tcp_thread = match r.get_mut(&uuid) {
+        Some(stream) => stream,
+        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
+    };
+
+    if !tcp_thread.thread_control.is_done() {
+        return cstring::to_widechar_ptr(DllStatus::NotYetReady.as_str());
+    }
+
+    let thread_result = unwrap_or_err!(tcp_thread.join_handler.take().unwrap().join().unwrap());
+
+    tcp_thread.tcp_stream = Some(thread_result.tcp_stream);
+
+    match tcp_thread.current_task {
+        Task::RecvExact | Task::RecvUntil | Task::RecvEnd => {
+            let result = base64::encode(thread_result.buffer.unwrap());
+            return cstring::to_widechar_ptr(&result);
+        }
+
+        Task::Connect => {
+            #[allow(unused_must_use)]
+            {
+                tcp_thread
+                    .tcp_stream
+                    .as_ref()
+                    .unwrap()
+                    .set_read_timeout(tcp_thread.timeout);
+                tcp_thread
+                    .tcp_stream
+                    .as_ref()
+                    .unwrap()
+                    .set_write_timeout(tcp_thread.timeout);
+            }
+        }
+        _ => (),
+    };
+
+    cstring::to_widechar_ptr(tcp_thread.current_task.as_str())
 }
-*/
+
+#[no_mangle]
+pub extern "stdcall" fn set_read_timeout(uuid_ptr: LPCWSTR, timeout_ptr: LPCWSTR) -> LPCWSTR {
+    let uuid = cstring::from_widechar_ptr(uuid_ptr);
+    let timeout = cstring::from_widechar_ptr(timeout_ptr);
+
+    let timeout = match unwrap_or_err!(timeout.parse::<u64>()) {
+        0 => None,
+        timeout => Some(Duration::from_millis(timeout)),
+    };
+
+    let r = unwrap_or_err!(CACHE.read());
+    let stream = match r.get(&uuid) {
+        Some(stream) => stream,
+        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
+    };
+
+    if stream.tcp_stream.is_none() {
+        return cstring::to_widechar_ptr(DllError::NoTcpStream.to_string());
+    }
+
+    unwrap_or_err!(stream
+        .tcp_stream
+        .as_ref()
+        .unwrap()
+        .set_read_timeout(timeout));
+    cstring::to_widechar_ptr("OK")
+}
+
+#[no_mangle]
+pub extern "stdcall" fn set_write_timeout(uuid_ptr: LPCWSTR, timeout_ptr: LPCWSTR) -> LPCWSTR {
+    let uuid = cstring::from_widechar_ptr(uuid_ptr);
+    let timeout = cstring::from_widechar_ptr(timeout_ptr);
+
+    let timeout = match unwrap_or_err!(timeout.parse::<u64>()) {
+        0 => None,
+        timeout => Some(Duration::from_millis(timeout)),
+    };
+
+    let r = unwrap_or_err!(CACHE.read());
+    let stream = match r.get(&uuid) {
+        Some(stream) => stream,
+        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
+    };
+
+    if stream.tcp_stream.is_none() {
+        return cstring::to_widechar_ptr(DllError::NoTcpStream.to_string());
+    }
+
+    unwrap_or_err!(stream
+        .tcp_stream
+        .as_ref()
+        .unwrap()
+        .set_write_timeout(timeout));
+    cstring::to_widechar_ptr("OK")
+}
+
+fn is_task_running(uuid: &str) -> Result<(), DllError> {
+    let has_join_handler = {
+        let r = CACHE.read().unwrap();
+        let tcp_thread = match r.get(uuid) {
+            Some(stream) => stream,
+            None => return Err(DllError::ConnectionNotFound),
+        };
+
+        tcp_thread.join_handler.is_some()
+    };
+
+    if !has_join_handler {
+        return Err(DllError::NoTaskRunning);
+    }
+
+    Ok(())
+}
+
+fn tcp_stream_exists(uuid: &str) -> Result<(), DllError> {
+    let has_tcp_stream = {
+        let r = CACHE.read().unwrap();
+        let tcp_thread = match r.get(uuid) {
+            Some(stream) => stream,
+            None => return Err(DllError::ConnectionNotFound),
+        };
+
+        tcp_thread.tcp_stream.is_some()
+    };
+
+    if !has_tcp_stream {
+        return Err(DllError::NoTcpStream);
+    }
+
+    Ok(())
+}

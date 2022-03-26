@@ -6,9 +6,9 @@ edition = "2021"
 [dependencies]
 wchar = "0.11"
 winapi = { version = "0.3.7", features = ["consoleapi", "libloaderapi"] }
-libc = "0.2.107"
+libc = "0.2.121"
 base64 = "0.13.0"
-mimalloc = { version = "0.1.17" }
+mimalloc = { version = "0.1.28" }
 socks = {git = "https://github.com/Numenorean/rust-socks"}
 lazy_static = "1.4.0"
 uuid = {version = "0.8.2", features = ["v4"]}
@@ -21,4 +21,4 @@ crate-type = ["cdylib"]
 [profile.release]
 lto = "fat"
 codegen-units = 1
-panic = 'abort'
+#panic = 'abort'

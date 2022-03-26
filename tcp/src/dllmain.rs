@@ -5,11 +5,9 @@ use winapi::um::libloaderapi::DisableThreadLibraryCalls;
 use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, LPCWSTR};
 use winapi::um::{consoleapi::AllocConsole, wincon::FreeConsole};
 
-//use crate::CACHE;
-
 const AUTHOR: &[u16] = wchz!("_Skill_");
 const VER: &[u16] = wchz!("0.1");
-const DESC: &[u16] = wchz!("Работаем с tcp/udp без лишних серваков");
+const DESC: &[u16] = wchz!("TCP с поддержкой прокси");
 const DEBUG: bool = true;
 
 #[no_mangle]

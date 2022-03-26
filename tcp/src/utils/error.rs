@@ -16,6 +16,12 @@ pub enum ProxyError {
     #[error("not a valid addr")]
     NotValidAddrA,
 
+    #[error("proxy failed to connect")]
+    ProxyConnect,
+
+    #[error("provided proxy credentials are incorrect")]
+    ProxyUnauthorized,
+
     #[error(transparent)]
     ConnectionError(#[from] io::Error),
 }
@@ -37,9 +43,23 @@ pub enum DllError {
     #[error("ERR|connection not found")]
     ConnectionNotFound,
 
-    #[error("WAIT")]
-    NotYetReady,
+    #[error("ERR|no active task")]
+    NoTaskRunning,
 
-    #[error("the connection has not created yet")]
-    NotYetConnected,
+    #[error(
+        "ERR|no tcp stream (either certain task is running or connection has not created yet)"
+    )]
+    NoTcpStream,
+}
+
+#[derive(Debug, Error)]
+pub enum GlobalError {
+    #[error(transparent)]
+    IOError(#[from] io::Error),
+
+    #[error(transparent)]
+    ConnectionError(#[from] ConnectionError),
+
+    #[error(transparent)]
+    ProxyError(#[from] ProxyError),
 }
