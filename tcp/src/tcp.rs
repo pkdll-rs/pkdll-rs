@@ -1,5 +1,9 @@
-use std::{thread, time::Duration};
+use std::{thread, time::{Duration, self, Instant}};
+extern crate futures;
+extern crate futures_cpupool;
 
+use futures::Future;
+use futures_cpupool::CpuPool;
 use uuid::Uuid;
 use winapi::um::winnt::LPCWSTR;
 
@@ -11,7 +15,10 @@ use crate::{
     unwrap_or_err,
     utils::tcp,
     Task, TcpThread, CACHE,
+    traits::ThreadResult, THREAD_POOL,
 };
+
+pub const TTL: Duration = Duration::from_secs(30);
 
 #[no_mangle]
 pub extern "stdcall" fn connect_ip(
@@ -45,16 +52,23 @@ pub extern "stdcall" fn connect_ip(
 
     let (flag, control) = thread_control::make_pair();
 
-    let handler = thread::spawn(move || {
+    let handler = THREAD_POOL.spawn_fn(move || {
+        flag.alive();
+        let result = tcp::connect(addr, proxy, timeout, proxy_resolve, use_tls).map_err(GlobalError::from);
+        result
+    });
+
+    /*let handler = thread::spawn(move || {
         flag.alive();
         tcp::connect(addr, proxy, timeout, proxy_resolve, use_tls).map_err(GlobalError::from)
-    });
+    });*/
 
     let tcp_thread = TcpThread {
         stream: None,
         join_handler: Some(handler),
         thread_control: control,
         current_task: Task::Connect,
+        ttl: Instant::now() + TTL,
     };
 
     let uuid = Uuid::new_v4().to_hyphenated().to_string();
@@ -81,13 +95,16 @@ pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWS
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
+    tcp_thread.increase_ttl();
+
     let stream = tcp_thread.stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
-    let handler = thread::spawn(move || {
+    let handler = THREAD_POOL.spawn_fn(move || {
         flag.alive();
-        tcp::send_data(stream, data).map_err(GlobalError::from)
+        let result = tcp::send_data(stream, data).map_err(GlobalError::from);
+        result
     });
 
     tcp_thread.thread_control = control;
@@ -113,13 +130,16 @@ pub extern "stdcall" fn recv_exact(uuid_ptr: LPCWSTR, len_ptr: LPCWSTR) -> LPCWS
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
+    tcp_thread.increase_ttl();
+
     let stream = tcp_thread.stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
-    let handler = thread::spawn(move || {
+    let handler = THREAD_POOL.spawn_fn(move || {
         flag.alive();
-        tcp::read_exact(stream, len).map_err(GlobalError::from)
+        let result = tcp::read_exact(stream, len).map_err(GlobalError::from);
+        result
     });
 
     tcp_thread.thread_control = control;
@@ -145,13 +165,16 @@ pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPC
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
+    tcp_thread.increase_ttl();
+
     let stream = tcp_thread.stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
-    let handler = thread::spawn(move || {
+    let handler = THREAD_POOL.spawn_fn(move || {
         flag.alive();
-        tcp::read_until(stream, until).map_err(GlobalError::from)
+        let result = tcp::read_until(stream, until).map_err(GlobalError::from);
+        result
     });
 
     tcp_thread.thread_control = control;
@@ -174,13 +197,16 @@ pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
         None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     };
 
+    tcp_thread.increase_ttl();
+
     let stream = tcp_thread.stream.take().unwrap();
 
     let (flag, control) = thread_control::make_pair();
 
-    let handler = thread::spawn(move || {
+    let handler = THREAD_POOL.spawn_fn(move || {
         flag.alive();
-        tcp::read_to_end(stream).map_err(GlobalError::from)
+        let result = tcp::read_to_end(stream).map_err(GlobalError::from);
+        result
     });
 
     tcp_thread.thread_control = control;
@@ -219,7 +245,9 @@ pub extern "stdcall" fn task_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
         return cstring::to_widechar_ptr(DllStatus::NotYetReady.as_str());
     }
 
-    let thread_result = unwrap_or_err!(tcp_thread.join_handler.take().unwrap().join().unwrap());
+    tcp_thread.increase_ttl();
+
+    let thread_result = unwrap_or_err!(tcp_thread.join_handler.take().unwrap().wait());
 
     tcp_thread.stream = Some(thread_result.stream);
 

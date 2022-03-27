@@ -2,23 +2,35 @@ use std::{
     io::{self, Read, Write},
     net::TcpStream,
     thread::JoinHandle,
-    time::Duration,
+    time::{Duration, Instant}, fmt::Debug,
 };
 
+use futures_cpupool::CpuFuture;
 use native_tls::TlsStream;
+
+use crate::tcp::TTL;
 
 use super::{error::GlobalError, statuses::Task};
 
+#[derive(Debug)]
 pub struct ThreadResult {
     pub stream: Box<dyn ReadAndWrite>,
     pub buffer: Option<Vec<u8>>,
 }
 
+#[derive(Debug)]
 pub struct TcpThread {
     pub stream: Option<Box<dyn ReadAndWrite>>,
-    pub join_handler: Option<JoinHandle<Result<ThreadResult, GlobalError>>>,
+    pub join_handler: Option<CpuFuture<ThreadResult, GlobalError>>,
     pub thread_control: thread_control::Control,
     pub current_task: Task,
+    pub ttl: Instant,
+}
+
+impl TcpThread {
+    pub fn increase_ttl(&mut self) {
+        self.ttl = Instant::now() + TTL;
+    }
 }
 
 pub trait SetTimeout {
@@ -46,6 +58,6 @@ impl SetTimeout for TcpStream {
     }
 }
 
-pub trait ReadAndWrite: Read + Write + SetTimeout + Send + Sync {}
+pub trait ReadAndWrite: Read + Write + SetTimeout + Send + Sync + Debug {}
 
-impl<T: Read + Write + SetTimeout + Send + Sync> ReadAndWrite for T {}
+impl<T: Read + Write + SetTimeout + Send + Sync + Debug> ReadAndWrite for T {}
