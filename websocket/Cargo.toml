@@ -1,0 +1,29 @@
+[package]
+name = "tcp"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+wchar = "0.11"
+winapi = { version = "0.3.7", features = ["consoleapi", "libloaderapi"] }
+libc = "0.2.121"
+base64 = "0.13.0"
+socks = {git = "https://github.com/Numenorean/rust-socks"}
+lazy_static = "1.4.0"
+uuid = {version = "0.8.2", features = ["v4"]}
+thiserror = "1.0.30"
+thread-control = "0.1.2"
+once_cell = "1.10.0"
+gag = "1.0.0"
+crossbeam-channel = "0.5.4"
+threadpool = "1.8.1"
+url = "2.2.2"
+tungstenite = {version = "0.17.2", features = ["native-tls"]}
+native-tls = "0.2.9"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
