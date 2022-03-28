@@ -1,11 +1,11 @@
 use std::{
+    fmt::Debug,
     io::{self, Read, Write},
     net::TcpStream,
-    thread::JoinHandle,
-    time::{Duration, Instant}, fmt::Debug,
+    time::{Duration, Instant},
 };
 
-use futures_cpupool::CpuFuture;
+use crossbeam_channel::Receiver;
 use native_tls::TlsStream;
 
 use crate::tcp::TTL;
@@ -21,7 +21,7 @@ pub struct ThreadResult {
 #[derive(Debug)]
 pub struct TcpThread {
     pub stream: Option<Box<dyn ReadAndWrite>>,
-    pub join_handler: Option<CpuFuture<ThreadResult, GlobalError>>,
+    pub join_handler: Option<Receiver<Result<ThreadResult, GlobalError>>>,
     pub thread_control: thread_control::Control,
     pub current_task: Task,
     pub ttl: Instant,

@@ -11,60 +11,76 @@ mod utils {
     pub mod traits;
 }
 
+use crate::dllmain::DEBUG;
 use once_cell::sync::Lazy;
+use threadpool::{Builder, ThreadPool};
 
 use crate::{statuses::Task, traits::TcpThread, utils::*};
-use std::{collections::BTreeMap, sync::{RwLock, Arc}, time::{Instant, Duration}, thread::{self, JoinHandle}};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex, RwLock, mpsc::{self, Sender}},
+    time::{Duration, Instant},
+};
 
 pub const ERR: &str = "ERR|";
 
-#[global_allocator]
+/*#[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+*/
+const THREAD_STACK_SIZE: usize = 256 * 1024;
+const THREADS_COUNT: usize = 600;
 
-#[macro_use]
-extern crate lazy_static;
+pub static mut CLEAR_THREAD_CONTROL: Option<Sender<()>> = None;
 
-use futures::Future;
-use futures_cpupool::CpuPool;
+static THREAD_POOL: Lazy<Mutex<ThreadPool>> = Lazy::new(|| {
+    let pool = Builder::new()
+        .num_threads(THREADS_COUNT + 1)
+        .thread_stack_size(THREAD_STACK_SIZE)
+        .build();
+    
+    let (send, recv) = mpsc::channel();
+    
+    pool.execute(move || {
+        let cache = Arc::clone(&CACHE);
+        loop {
+            if let Ok(_) = recv.recv_timeout(Duration::from_secs(60)) {
+                debug!("Interrupted clearing cache!");
+                return;
+            }
+    
+            cleanup(&cache);
+        }
+    });
 
-static THREAD_POOL: Lazy<CpuPool> = Lazy::new(|| {
-    let pool = CpuPool::new(50);
-    pool
+    unsafe {
+        CLEAR_THREAD_CONTROL = Some(send);
+    }
+
+    Mutex::new(pool)
 });
 
 static CACHE: Lazy<Arc<RwLock<BTreeMap<String, TcpThread>>>> = Lazy::new(|| {
     let cache = BTreeMap::new();
-    let cache = Arc::new(RwLock::new(cache));
-    let copy = Arc::clone(&cache);
+    let cache = RwLock::new(cache);
 
-    /*thread::spawn(move || {
-        let copy = copy;
-        loop {
-            cleanup(&copy);
-            thread::sleep(Duration::from_secs(40))
-        }
-    });*/
-
-    cache
+    Arc::new(cache)
 });
 
-/*fn cleanup(cache: &Arc<RwLock<BTreeMap<String, TcpThread>>>) {
+fn cleanup(cache: &Arc<RwLock<BTreeMap<String, TcpThread>>>) {
     let mut w = cache.write().unwrap();
     w.retain(|_, v| {
         if v.ttl < Instant::now() {
             if let Some(handler) = v.join_handler.take() {
-                println!("Joining: {:?}, {:?}", v, handler);
+                debug!("Removing: {:?}, {:?}", v, handler);
                 if !v.thread_control.is_done() {
-                    println!("Not finished");
+                    debug!("Not finished");
                     return true;
                 }
-                handler.join();
-                println!("Joined");
             }
-            println!("Removed");
+            debug!("Removed");
             return false;
         }
         true
     });
-    println!("{}", w.len());
-}*/
+    debug!("Cache len: {}", w.len());
+}

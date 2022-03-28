@@ -7,17 +7,20 @@ use std::{
     time::Duration,
 };
 
+#[derive(Debug)]
 pub enum ProxyType {
     SOCKS4,
     SOCKS5,
     Http,
 }
 
+#[derive(Debug)]
 pub struct Creds {
     pub username: String,
     pub password: String,
 }
 
+#[derive(Debug)]
 pub struct Proxy {
     pub _type: ProxyType,
     pub addr: SocketAddr,

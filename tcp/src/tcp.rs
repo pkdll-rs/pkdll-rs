@@ -1,24 +1,27 @@
-use std::{thread, time::{Duration, self, Instant}};
-extern crate futures;
-extern crate futures_cpupool;
+use crossbeam_channel::{Receiver as _Receiver, Sender as _Sender};
+use std::ptr;
+use std::time::{Duration, Instant};
 
-use futures::Future;
-use futures_cpupool::CpuPool;
+use crossbeam_channel::bounded;
 use uuid::Uuid;
 use winapi::um::winnt::LPCWSTR;
 
+use crate::debug;
 use crate::{
     cstring,
     error::{DllError, GlobalError},
     proxy::Proxy,
     statuses::DllStatus,
+    traits::ThreadResult,
     unwrap_or_err,
     utils::tcp,
-    Task, TcpThread, CACHE,
-    traits::ThreadResult, THREAD_POOL,
+    Task, TcpThread, CACHE, DEBUG, THREAD_POOL,
 };
 
 pub const TTL: Duration = Duration::from_secs(30);
+
+type Sender = _Sender<Result<ThreadResult, GlobalError>>;
+type Receiver = _Receiver<Result<ThreadResult, GlobalError>>;
 
 #[no_mangle]
 pub extern "stdcall" fn connect_ip(
@@ -50,22 +53,28 @@ pub extern "stdcall" fn connect_ip(
         proxy = Some(unwrap_or_err!(Proxy::from_pk_str(proxy_addr)));
     }
 
-    let (flag, control) = thread_control::make_pair();
+    debug!(
+        "[Connect] Addr: {}, proxy: {:?}, timeout: {:?}, proxy_resolve: {}, use_tls: {}",
+        addr, proxy, timeout, proxy_resolve, use_tls
+    );
 
-    let handler = THREAD_POOL.spawn_fn(move || {
+    let (flag, control) = thread_control::make_pair();
+    let (sender, recv): (Sender, Receiver) = bounded(1);
+
+    THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
-        let result = tcp::connect(addr, proxy, timeout, proxy_resolve, use_tls).map_err(GlobalError::from);
-        result
+        debug!("After alive");
+        let result =
+            tcp::connect(addr, proxy, timeout, proxy_resolve, use_tls).map_err(GlobalError::from);
+        debug!("After result");
+        sender.send(result).expect("send failed");
     });
 
-    /*let handler = thread::spawn(move || {
-        flag.alive();
-        tcp::connect(addr, proxy, timeout, proxy_resolve, use_tls).map_err(GlobalError::from)
-    });*/
+    debug!("After spawn");
 
     let tcp_thread = TcpThread {
         stream: None,
-        join_handler: Some(handler),
+        join_handler: Some(recv),
         thread_control: control,
         current_task: Task::Connect,
         ttl: Instant::now() + TTL,
@@ -75,6 +84,11 @@ pub extern "stdcall" fn connect_ip(
 
     let mut w = unwrap_or_err!(CACHE.write());
     w.insert(uuid.clone(), tcp_thread);
+
+    debug!("Uuid: {}", uuid);
+    println!("{:?}", unsafe {
+        &*ptr::slice_from_raw_parts(&CACHE as *const _ as *mut u32, 100)
+    });
 
     cstring::to_widechar_ptr(uuid)
 }
@@ -86,8 +100,8 @@ pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWS
         return cstring::to_widechar_ptr(error.to_string());
     }
 
-    let data = cstring::from_widechar_ptr(data_ptr);
-    let data = unwrap_or_err!(base64::decode(data));
+    let data_str = cstring::from_widechar_ptr(data_ptr);
+    let data = unwrap_or_err!(base64::decode(&data_str));
 
     let mut w = unwrap_or_err!(CACHE.write());
     let mut tcp_thread = match w.get_mut(&uuid) {
@@ -99,16 +113,20 @@ pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWS
 
     let stream = tcp_thread.stream.take().unwrap();
 
+    debug!("[Send] uuid: {}, data: {}", uuid, data_str);
+
     let (flag, control) = thread_control::make_pair();
 
-    let handler = THREAD_POOL.spawn_fn(move || {
+    let (sender, recv): (Sender, Receiver) = bounded(1);
+
+    THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
         let result = tcp::send_data(stream, data).map_err(GlobalError::from);
-        result
+        sender.send(result).expect("send failed");
     });
 
     tcp_thread.thread_control = control;
-    tcp_thread.join_handler = Some(handler);
+    tcp_thread.join_handler = Some(recv);
     tcp_thread.current_task = Task::SendData;
 
     cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
@@ -134,16 +152,20 @@ pub extern "stdcall" fn recv_exact(uuid_ptr: LPCWSTR, len_ptr: LPCWSTR) -> LPCWS
 
     let stream = tcp_thread.stream.take().unwrap();
 
+    debug!("[RecvExact] uuid: {}, len: {}", uuid, len);
+
     let (flag, control) = thread_control::make_pair();
 
-    let handler = THREAD_POOL.spawn_fn(move || {
+    let (sender, recv): (Sender, Receiver) = bounded(1);
+
+    THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
         let result = tcp::read_exact(stream, len).map_err(GlobalError::from);
-        result
+        sender.send(result).expect("send failed");
     });
 
     tcp_thread.thread_control = control;
-    tcp_thread.join_handler = Some(handler);
+    tcp_thread.join_handler = Some(recv);
     tcp_thread.current_task = Task::RecvExact;
 
     cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
@@ -156,8 +178,8 @@ pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPC
         return cstring::to_widechar_ptr(error.to_string());
     }
 
-    let until = cstring::from_widechar_ptr(until_ptr);
-    let until = unwrap_or_err!(base64::decode(until));
+    let until_str = cstring::from_widechar_ptr(until_ptr);
+    let until = unwrap_or_err!(base64::decode(&until_str));
 
     let mut w = unwrap_or_err!(CACHE.write());
     let mut tcp_thread = match w.get_mut(&uuid) {
@@ -169,16 +191,20 @@ pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPC
 
     let stream = tcp_thread.stream.take().unwrap();
 
+    debug!("[RecvUntil] uuid: {}, until: {}", uuid, until_str);
+
     let (flag, control) = thread_control::make_pair();
 
-    let handler = THREAD_POOL.spawn_fn(move || {
+    let (sender, recv): (Sender, Receiver) = bounded(1);
+
+    THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
         let result = tcp::read_until(stream, until).map_err(GlobalError::from);
-        result
+        sender.send(result).expect("send failed");
     });
 
     tcp_thread.thread_control = control;
-    tcp_thread.join_handler = Some(handler);
+    tcp_thread.join_handler = Some(recv);
     tcp_thread.current_task = Task::RecvUntil;
 
     cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
@@ -203,14 +229,18 @@ pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
 
     let (flag, control) = thread_control::make_pair();
 
-    let handler = THREAD_POOL.spawn_fn(move || {
+    debug!("[RecvEnd] uuid: {}", uuid);
+
+    let (sender, recv): (Sender, Receiver) = bounded(1);
+
+    THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
         let result = tcp::read_to_end(stream).map_err(GlobalError::from);
-        result
+        sender.send(result).expect("send failed");
     });
 
     tcp_thread.thread_control = control;
-    tcp_thread.join_handler = Some(handler);
+    tcp_thread.join_handler = Some(recv);
     tcp_thread.current_task = Task::RecvEnd;
 
     cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
@@ -219,6 +249,8 @@ pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
 #[no_mangle]
 pub extern "stdcall" fn disconnect(uuid_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
+
+    debug!("[Disconnect] uuid: {}", uuid);
 
     let mut mx = unwrap_or_err!(CACHE.write());
     match mx.remove(&uuid) {
@@ -247,9 +279,11 @@ pub extern "stdcall" fn task_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
 
     tcp_thread.increase_ttl();
 
-    let thread_result = unwrap_or_err!(tcp_thread.join_handler.take().unwrap().wait());
+    let thread_result = unwrap_or_err!(tcp_thread.join_handler.take().unwrap().recv().unwrap());
 
     tcp_thread.stream = Some(thread_result.stream);
+
+    debug!("[TaskStatus] uuid: {}, tcp_thread: {:?}", uuid, tcp_thread);
 
     match tcp_thread.current_task {
         Task::RecvExact | Task::RecvUntil | Task::RecvEnd => {
@@ -282,6 +316,8 @@ pub extern "stdcall" fn set_read_timeout(uuid_ptr: LPCWSTR, timeout_ptr: LPCWSTR
         return cstring::to_widechar_ptr(DllError::NoTcpStream.to_string());
     }
 
+    debug!("[SetReadTimeout] uuid: {}, timeout: {:?}", uuid, timeout);
+
     unwrap_or_err!(tcp_thread
         .stream
         .as_ref()
@@ -309,6 +345,8 @@ pub extern "stdcall" fn set_write_timeout(uuid_ptr: LPCWSTR, timeout_ptr: LPCWST
     if stream.stream.is_none() {
         return cstring::to_widechar_ptr(DllError::NoTcpStream.to_string());
     }
+
+    debug!("[SetWriteTimeout] uuid: {}, timeout: {:?}", uuid, timeout);
 
     unwrap_or_err!(stream.stream.as_ref().unwrap().set_write_timeout(timeout));
     cstring::to_widechar_ptr("OK")
