@@ -44,6 +44,8 @@ static THREAD_POOL: Lazy<Mutex<ThreadPool>> = Lazy::new(|| {
         let cache = Arc::clone(&CACHE);
         loop {
             if let Ok(_) = recv.recv_timeout(Duration::from_secs(60)) {
+                debug!("Clearing cache last time!");
+                cleanup(&cache);
                 debug!("Interrupted clearing cache!");
                 return;
             }

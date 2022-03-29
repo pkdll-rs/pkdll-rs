@@ -1,5 +1,4 @@
 use crossbeam_channel::{Receiver as _Receiver, Sender as _Sender};
-use std::ptr;
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::bounded;
@@ -67,7 +66,7 @@ pub extern "stdcall" fn connect_ip(
         let result =
             tcp::connect(addr, proxy, timeout, proxy_resolve, use_tls).map_err(GlobalError::from);
         debug!("After result");
-        sender.send(result).expect("send failed");
+        debug!("Sent: {:?}", sender.send(result));
     });
 
     debug!("After spawn");
@@ -86,9 +85,6 @@ pub extern "stdcall" fn connect_ip(
     w.insert(uuid.clone(), tcp_thread);
 
     debug!("Uuid: {}", uuid);
-    println!("{:?}", unsafe {
-        &*ptr::slice_from_raw_parts(&CACHE as *const _ as *mut u32, 100)
-    });
 
     cstring::to_widechar_ptr(uuid)
 }
@@ -122,7 +118,7 @@ pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWS
     THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
         let result = tcp::send_data(stream, data).map_err(GlobalError::from);
-        sender.send(result).expect("send failed");
+        debug!("Sent: {:?}", sender.send(result));
     });
 
     tcp_thread.thread_control = control;
@@ -161,7 +157,7 @@ pub extern "stdcall" fn recv_exact(uuid_ptr: LPCWSTR, len_ptr: LPCWSTR) -> LPCWS
     THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
         let result = tcp::read_exact(stream, len).map_err(GlobalError::from);
-        sender.send(result).expect("send failed");
+        debug!("Sent: {:?}", sender.send(result));
     });
 
     tcp_thread.thread_control = control;
@@ -200,7 +196,7 @@ pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPC
     THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
         let result = tcp::read_until(stream, until).map_err(GlobalError::from);
-        sender.send(result).expect("send failed");
+        debug!("Sent: {:?}", sender.send(result));
     });
 
     tcp_thread.thread_control = control;
@@ -236,7 +232,7 @@ pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
     THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
         let result = tcp::read_to_end(stream).map_err(GlobalError::from);
-        sender.send(result).expect("send failed");
+        debug!("Sent: {:?}", sender.send(result));
     });
 
     tcp_thread.thread_control = control;

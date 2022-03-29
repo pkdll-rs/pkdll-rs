@@ -13,7 +13,7 @@ use winapi::um::{consoleapi::AllocConsole, wincon::FreeConsole};
 use crate::{CLEAR_THREAD_CONTROL, debug};
 
 const AUTHOR: &[u16] = wchz!("_Skill_");
-const VER: &[u16] = wchz!("0.1");
+const VER: &[u16] = wchz!("0.2");
 const DESC: &[u16] = wchz!("TCP с поддержкой прокси");
 pub const DEBUG: bool = false;
 
