@@ -1,5 +1,4 @@
 use std::{
-    io::{self, BufRead, BufReader, Read, Write},
     net::{TcpStream, ToSocketAddrs},
     time::Duration,
 };
@@ -12,8 +11,10 @@ use crate::{
 
 use native_tls::TlsConnector;
 use socks::ToTargetAddr;
+use tungstenite::{
+    client_tls_with_config, stream::MaybeTlsStream, Connector, Message, Result, WebSocket,
+};
 use url::Url;
-use tungstenite::{client_tls_with_config, Connector};
 
 pub fn connect(
     url: Url,
@@ -21,7 +22,10 @@ pub fn connect(
     timeout: Option<Duration>,
     proxy_resolve: bool,
 ) -> Result<ThreadResult, GlobalError> {
-    let host_port = (url.host_str().unwrap_or_default(), url.port_or_known_default().unwrap_or_default());
+    let host_port = (
+        url.host_str().unwrap_or_default(),
+        url.port_or_known_default().unwrap_or_default(),
+    );
 
     let stream = match proxy {
         Some(ref proxy) => {
@@ -69,17 +73,20 @@ pub fn connect(
     stream.set_read_timeout(timeout)?;
     stream.set_write_timeout(timeout)?;
 
-    let connector: Option<Connector> = None;
+    let mut connector: Option<Connector> = None;
 
     if url.scheme() == "wss" {
-        connector = Some(tungstenite::Connector::NativeTls(TlsConnector::builder()
-            .danger_accept_invalid_certs(true)
-            .danger_accept_invalid_hostnames(true)
-            .use_sni(false)
-            .build()?));
+        connector = Some(tungstenite::Connector::NativeTls(
+            TlsConnector::builder()
+                .danger_accept_invalid_certs(true)
+                .danger_accept_invalid_hostnames(true)
+                .use_sni(false)
+                .build()?,
+        ));
     }
 
-    let (ws, resp) = client_tls_with_config(url, stream, None, connector).map_err(GlobalError::from)?;
+    let (ws, resp) =
+        client_tls_with_config(url, stream, None, connector).map_err(GlobalError::from)?;
 
     Ok(ThreadResult {
         stream: ws,
@@ -88,9 +95,11 @@ pub fn connect(
     })
 }
 
-pub fn send_data(mut stream: Box<dyn ReadAndWrite>, data: Vec<u8>) -> io::Result<ThreadResult> {
-    stream.write_all(&data)?;
-    stream.flush()?;
+pub fn send_message(
+    mut stream: WebSocket<MaybeTlsStream<TcpStream>>,
+    message: Message,
+) -> Result<ThreadResult> {
+    stream.write_message(message)?;
     Ok(ThreadResult {
         stream,
         resp: None,
@@ -98,59 +107,11 @@ pub fn send_data(mut stream: Box<dyn ReadAndWrite>, data: Vec<u8>) -> io::Result
     })
 }
 
-pub fn read_exact(mut stream: Box<dyn ReadAndWrite>, len: usize) -> io::Result<ThreadResult> {
-    let mut buf = vec![0u8; len];
-    stream.read_exact(&mut buf)?;
+pub fn read_message(mut stream: WebSocket<MaybeTlsStream<TcpStream>>) -> Result<ThreadResult> {
+    let message = stream.read_message()?;
     Ok(ThreadResult {
         stream,
         resp: None,
-        buffer: Some(buf),
+        buffer: Some(message),
     })
-}
-
-pub fn read_to_end(mut stream: Box<dyn ReadAndWrite>) -> io::Result<ThreadResult> {
-    let mut buf = Vec::new();
-    if let Err(error) = stream.read_to_end(&mut buf) {
-        if error.kind() != io::ErrorKind::TimedOut {
-            return Err(error);
-        }
-    }
-
-    Ok(ThreadResult {
-        stream,
-        resp: None,
-        buffer: Some(buf),
-    })
-}
-
-pub fn read_until(mut stream: Box<dyn ReadAndWrite>, until: Vec<u8>) -> io::Result<ThreadResult> {
-    let mut buf = Vec::new();
-
-    if until.len() > 1 {
-        buf = _read_until(BufReader::new(&mut stream), &until)?;
-    } else {
-        BufReader::new(&mut stream).read_until(until[0], &mut buf)?;
-    }
-
-    Ok(ThreadResult {
-        stream,
-        resp: None,
-        buffer: Some(buf),
-    })
-}
-
-fn _read_until<R: Read>(mut stream: R, delim: &[u8]) -> io::Result<Vec<u8>> {
-    let mut data = vec![];
-    loop {
-        let mut buf = [0u8; 1];
-        let n = stream.read(&mut buf)?;
-        if n != 1 {
-            break;
-        }
-        data.push(buf[0]);
-        if data.len() >= delim.len() && &data[data.len() - delim.len()..] == delim {
-            return Ok(data);
-        }
-    }
-    Ok(data)
 }

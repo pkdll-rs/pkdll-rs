@@ -7,8 +7,8 @@ mod utils {
     pub mod macros;
     pub mod proxy;
     pub mod statuses;
-    pub mod websocket;
     pub mod traits;
+    pub mod websocket;
 }
 
 use crate::dllmain::DEBUG;
@@ -18,7 +18,10 @@ use threadpool::{Builder, ThreadPool};
 use crate::{statuses::Task, traits::TcpThread, utils::*};
 use std::{
     collections::BTreeMap,
-    sync::{Arc, Mutex, RwLock, mpsc::{self, Sender}},
+    sync::{
+        mpsc::{self, Sender},
+        Arc, Mutex, RwLock,
+    },
     time::{Duration, Instant},
 };
 
@@ -37,17 +40,19 @@ static THREAD_POOL: Lazy<Mutex<ThreadPool>> = Lazy::new(|| {
         .num_threads(THREADS_COUNT + 1)
         .thread_stack_size(THREAD_STACK_SIZE)
         .build();
-    
+
     let (send, recv) = mpsc::channel();
-    
+
     pool.execute(move || {
         let cache = Arc::clone(&CACHE);
         loop {
-            if let Ok(_) = recv.recv_timeout(Duration::from_secs(60)) {
+            if recv.recv_timeout(Duration::from_secs(60)).is_ok() {
+                debug!("Clearing cache last time!");
+                cleanup(&cache);
                 debug!("Interrupted clearing cache!");
                 return;
             }
-    
+
             cleanup(&cache);
         }
     });
@@ -76,6 +81,11 @@ fn cleanup(cache: &Arc<RwLock<BTreeMap<String, TcpThread>>>) {
                     debug!("Not finished");
                     return true;
                 }
+
+                if let Ok(mut thread_result) = handler.recv().unwrap() {
+                    let result = thread_result.stream.close(None);
+                    debug!("Close result: {:?}", result);
+                };
             }
             debug!("Removed");
             return false;

@@ -1,18 +1,16 @@
 #[derive(Debug)]
 pub enum Task {
     Connect,
-    SendData,
-    RecvExact,
-    RecvUntil,
-    RecvEnd,
+    SendMessage,
+    ReadMessage,
 }
 
 impl Task {
     pub fn as_str(&self) -> &'static str {
         match *self {
             Task::Connect => "CONNECTED",
-            Task::SendData => "SENT",
-            Task::RecvExact | Task::RecvUntil | Task::RecvEnd => "RECEIVED",
+            Task::SendMessage => "SENT",
+            Task::ReadMessage => "RECEIVED",
         }
     }
 }

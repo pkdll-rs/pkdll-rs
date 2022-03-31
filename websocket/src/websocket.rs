@@ -1,13 +1,15 @@
 use crossbeam_channel::{Receiver as _Receiver, Sender as _Sender};
-use url::Url;
-use std::ptr;
 use std::time::{Duration, Instant};
+use tungstenite::protocol::CloseFrame;
+use tungstenite::Message;
+use url::Url;
 
 use crossbeam_channel::bounded;
 use uuid::Uuid;
 use winapi::um::winnt::LPCWSTR;
 
 use crate::debug;
+use crate::utils::traits::SetTimeout;
 use crate::{
     cstring,
     error::{DllError, GlobalError},
@@ -52,7 +54,7 @@ pub extern "stdcall" fn connect_ip(
     }
 
     debug!(
-        "[Connect] URL: {:?}, proxy: {:?}, timeout: {:?}, proxy_resolve: {}",
+        "[Connect] URL: {}, proxy: {:?}, timeout: {:?}, proxy_resolve: {}",
         url, proxy, timeout, proxy_resolve
     );
 
@@ -64,8 +66,9 @@ pub extern "stdcall" fn connect_ip(
         debug!("After alive");
         let result =
             websocket::connect(url, proxy, timeout, proxy_resolve).map_err(GlobalError::from);
-        debug!("After result");
-        sender.send(result).expect("send failed");
+        debug!("After result: {:?}", result);
+        let result = sender.send(result);
+        debug!("Sent: {:?}", result);
     });
 
     debug!("After spawn");
@@ -84,22 +87,34 @@ pub extern "stdcall" fn connect_ip(
     w.insert(uuid.clone(), tcp_thread);
 
     debug!("Uuid: {}", uuid);
-    println!("{:?}", unsafe {
-        &*ptr::slice_from_raw_parts(&CACHE as *const _ as *mut u32, 100)
-    });
 
     cstring::to_widechar_ptr(uuid)
 }
 
 #[no_mangle]
-pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWSTR {
+pub extern "stdcall" fn send_message(
+    uuid_ptr: LPCWSTR,
+    message_type_ptr: LPCWSTR,
+    data_ptr: LPCWSTR,
+) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
     if let Err(error) = stream_exists(&uuid) {
         return cstring::to_widechar_ptr(error.to_string());
     }
 
-    let data_str = cstring::from_widechar_ptr(data_ptr);
-    let data = unwrap_or_err!(base64::decode(&data_str));
+    let message_type = cstring::from_widechar_ptr(message_type_ptr);
+
+    let data = cstring::from_widechar_ptr(data_ptr);
+
+    let message = match message_type.as_str() {
+        "text" => Message::Text(data),
+        "binary" => Message::Binary(unwrap_or_err!(base64::decode(data))),
+        message_type => {
+            return cstring::to_widechar_ptr(
+                DllError::BadMessageType(message_type.to_owned()).to_string(),
+            )
+        }
+    };
 
     let mut w = unwrap_or_err!(CACHE.write());
     let mut tcp_thread = match w.get_mut(&uuid) {
@@ -111,7 +126,7 @@ pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWS
 
     let stream = tcp_thread.stream.take().unwrap();
 
-    debug!("[Send] uuid: {}, data: {}", uuid, data_str);
+    debug!("[Send] uuid: {}, message: {}", uuid, message);
 
     let (flag, control) = thread_control::make_pair();
 
@@ -119,97 +134,20 @@ pub extern "stdcall" fn send_data(uuid_ptr: LPCWSTR, data_ptr: LPCWSTR) -> LPCWS
 
     THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
-        let result = tcp::send_data(stream, data).map_err(GlobalError::from);
-        sender.send(result).expect("send failed");
+        let result = websocket::send_message(stream, message).map_err(GlobalError::from);
+        let result = sender.send(result);
+        debug!("Sent: {:?}", result);
     });
 
     tcp_thread.thread_control = control;
     tcp_thread.join_handler = Some(recv);
-    tcp_thread.current_task = Task::SendData;
+    tcp_thread.current_task = Task::SendMessage;
 
     cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
 }
 
 #[no_mangle]
-pub extern "stdcall" fn recv_exact(uuid_ptr: LPCWSTR, len_ptr: LPCWSTR) -> LPCWSTR {
-    let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    if let Err(error) = stream_exists(&uuid) {
-        return cstring::to_widechar_ptr(error.to_string());
-    }
-
-    let len = cstring::from_widechar_ptr(len_ptr);
-    let len: usize = unwrap_or_err!(len.parse());
-
-    let mut w = unwrap_or_err!(CACHE.write());
-    let mut tcp_thread = match w.get_mut(&uuid) {
-        Some(tcp_thread) => tcp_thread,
-        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
-    };
-
-    tcp_thread.increase_ttl();
-
-    let stream = tcp_thread.stream.take().unwrap();
-
-    debug!("[RecvExact] uuid: {}, len: {}", uuid, len);
-
-    let (flag, control) = thread_control::make_pair();
-
-    let (sender, recv): (Sender, Receiver) = bounded(1);
-
-    THREAD_POOL.lock().unwrap().execute(move || {
-        flag.alive();
-        let result = tcp::read_exact(stream, len).map_err(GlobalError::from);
-        sender.send(result).expect("send failed");
-    });
-
-    tcp_thread.thread_control = control;
-    tcp_thread.join_handler = Some(recv);
-    tcp_thread.current_task = Task::RecvExact;
-
-    cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
-}
-
-#[no_mangle]
-pub extern "stdcall" fn recv_until(uuid_ptr: LPCWSTR, until_ptr: LPCWSTR) -> LPCWSTR {
-    let uuid = cstring::from_widechar_ptr(uuid_ptr);
-    if let Err(error) = stream_exists(&uuid) {
-        return cstring::to_widechar_ptr(error.to_string());
-    }
-
-    let until_str = cstring::from_widechar_ptr(until_ptr);
-    let until = unwrap_or_err!(base64::decode(&until_str));
-
-    let mut w = unwrap_or_err!(CACHE.write());
-    let mut tcp_thread = match w.get_mut(&uuid) {
-        Some(tcp_thread) => tcp_thread,
-        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
-    };
-
-    tcp_thread.increase_ttl();
-
-    let stream = tcp_thread.stream.take().unwrap();
-
-    debug!("[RecvUntil] uuid: {}, until: {}", uuid, until_str);
-
-    let (flag, control) = thread_control::make_pair();
-
-    let (sender, recv): (Sender, Receiver) = bounded(1);
-
-    THREAD_POOL.lock().unwrap().execute(move || {
-        flag.alive();
-        let result = tcp::read_until(stream, until).map_err(GlobalError::from);
-        sender.send(result).expect("send failed");
-    });
-
-    tcp_thread.thread_control = control;
-    tcp_thread.join_handler = Some(recv);
-    tcp_thread.current_task = Task::RecvUntil;
-
-    cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
-}
-
-#[no_mangle]
-pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
+pub extern "stdcall" fn read_message(uuid_ptr: LPCWSTR) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
     if let Err(error) = stream_exists(&uuid) {
         return cstring::to_widechar_ptr(error.to_string());
@@ -225,33 +163,61 @@ pub extern "stdcall" fn recv_end(uuid_ptr: LPCWSTR) -> LPCWSTR {
 
     let stream = tcp_thread.stream.take().unwrap();
 
-    let (flag, control) = thread_control::make_pair();
+    debug!("[ReadMessage] uuid: {}", uuid);
 
-    debug!("[RecvEnd] uuid: {}", uuid);
+    let (flag, control) = thread_control::make_pair();
 
     let (sender, recv): (Sender, Receiver) = bounded(1);
 
     THREAD_POOL.lock().unwrap().execute(move || {
         flag.alive();
-        let result = tcp::read_to_end(stream).map_err(GlobalError::from);
-        sender.send(result).expect("send failed");
+        let result = websocket::read_message(stream).map_err(GlobalError::from);
+        let result = sender.send(result);
+        debug!("Sent: {:?}", result);
     });
 
     tcp_thread.thread_control = control;
     tcp_thread.join_handler = Some(recv);
-    tcp_thread.current_task = Task::RecvEnd;
+    tcp_thread.current_task = Task::ReadMessage;
 
     cstring::to_widechar_ptr(DllStatus::ThreadSpawned.as_str())
 }
 
 #[no_mangle]
-pub extern "stdcall" fn disconnect(uuid_ptr: LPCWSTR) -> LPCWSTR {
+pub extern "stdcall" fn disconnect(
+    uuid_ptr: LPCWSTR,
+    code_ptr: LPCWSTR,
+    reason_ptr: LPCWSTR,
+) -> LPCWSTR {
     let uuid = cstring::from_widechar_ptr(uuid_ptr);
+
+    let code = cstring::from_widechar_ptr(code_ptr);
+
+    let reason = cstring::from_widechar_ptr(reason_ptr);
+
+    let code: Option<CloseFrame> = match code.parse::<u16>() {
+        Ok(code) => Some(CloseFrame {
+            code: code.into(),
+            reason: reason.into(),
+        }),
+        Err(_) => None,
+    };
 
     debug!("[Disconnect] uuid: {}", uuid);
 
-    let mut mx = unwrap_or_err!(CACHE.write());
-    match mx.remove(&uuid) {
+    let mut w = unwrap_or_err!(CACHE.write());
+    let tcp_thread = match w.get_mut(&uuid) {
+        Some(tcp_thread) => tcp_thread,
+        None => return cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
+    };
+
+    if let Some(mut stream) = tcp_thread.stream.take() {
+        let result = stream.close(code);
+        debug!("Close result: {:?}", result);
+        unwrap_or_err!(result);
+    }
+
+    match w.remove(&uuid) {
         Some(_) => cstring::to_widechar_ptr(DllStatus::Ok.as_str()),
         None => cstring::to_widechar_ptr(DllError::ConnectionNotFound.to_string()),
     }
@@ -283,13 +249,16 @@ pub extern "stdcall" fn task_status(uuid_ptr: LPCWSTR) -> LPCWSTR {
 
     debug!("[TaskStatus] uuid: {}, tcp_thread: {:?}", uuid, tcp_thread);
 
-    match tcp_thread.current_task {
-        Task::RecvExact | Task::RecvUntil | Task::RecvEnd => {
-            let result = base64::encode(thread_result.buffer.unwrap());
-            return cstring::to_widechar_ptr(&result);
-        }
-        _ => (),
-    };
+    if let Task::ReadMessage = tcp_thread.current_task {
+        let message = thread_result.buffer.unwrap();
+        let message = match message {
+            Message::Text(text) => "TEXT|".to_owned() + &text,
+            Message::Binary(bin) => "BINARY|".to_owned() + &base64::encode(bin),
+            _ => message.to_string(),
+        };
+
+        return cstring::to_widechar_ptr(message);
+    }
 
     cstring::to_widechar_ptr(tcp_thread.current_task.as_str())
 }

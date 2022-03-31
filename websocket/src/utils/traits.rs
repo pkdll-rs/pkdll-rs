@@ -1,12 +1,12 @@
 use std::{
     fmt::Debug,
-    io::{self, Read, Write},
+    io,
     net::TcpStream,
     time::{Duration, Instant},
 };
 
 use crossbeam_channel::Receiver;
-use tungstenite::{stream::MaybeTlsStream, WebSocket, http::Response};
+use tungstenite::{http::Response, stream::MaybeTlsStream, Message, WebSocket};
 
 use crate::websocket::TTL;
 
@@ -16,7 +16,7 @@ use super::{error::GlobalError, statuses::Task};
 pub struct ThreadResult {
     pub stream: WebSocket<MaybeTlsStream<TcpStream>>,
     pub resp: Option<Response<()>>,
-    pub buffer: Option<Vec<u8>>,
+    pub buffer: Option<Message>,
 }
 
 #[derive(Debug)]
@@ -42,24 +42,16 @@ pub trait SetTimeout {
 impl SetTimeout for WebSocket<MaybeTlsStream<TcpStream>> {
     fn set_read_timeout(&self, dur: Option<Duration>) -> io::Result<()> {
         match self.get_ref() {
-            MaybeTlsStream::Plain(s) => {
-                s.set_read_timeout(dur)
-            },
-            MaybeTlsStream::NativeTls(s) => {
-                s.get_ref().set_read_timeout(dur)
-            },
+            MaybeTlsStream::Plain(s) => s.set_read_timeout(dur),
+            MaybeTlsStream::NativeTls(s) => s.get_ref().set_read_timeout(dur),
             _ => unreachable!("no rustls"),
         }
     }
 
     fn set_write_timeout(&self, dur: Option<Duration>) -> io::Result<()> {
         match self.get_ref() {
-            MaybeTlsStream::Plain(s) => {
-                s.set_write_timeout(dur)
-            },
-            MaybeTlsStream::NativeTls(s) => {
-                s.get_ref().set_write_timeout(dur)
-            },
+            MaybeTlsStream::Plain(s) => s.set_write_timeout(dur),
+            MaybeTlsStream::NativeTls(s) => s.get_ref().set_write_timeout(dur),
             _ => unreachable!("no rustls"),
         }
     }

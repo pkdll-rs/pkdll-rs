@@ -4,7 +4,7 @@ use std::{
 };
 
 use thiserror::Error;
-use tungstenite::{ClientHandshake, stream::MaybeTlsStream};
+use tungstenite::{stream::MaybeTlsStream, ClientHandshake};
 
 #[derive(Debug, Error)]
 pub enum ProxyError {
@@ -54,6 +54,9 @@ pub enum DllError {
         "ERR|no tcp stream (either certain task is running or connection has not created yet)"
     )]
     NoTcpStream,
+
+    #[error("ERR|unsupported message type: {0}")]
+    BadMessageType(String),
 }
 
 #[derive(Debug, Error)]
@@ -74,5 +77,8 @@ pub enum GlobalError {
     Handshake(#[from] native_tls::HandshakeError<TcpStream>),
 
     #[error(transparent)]
-    WSHandshake(#[from] tungstenite::HandshakeError<ClientHandshake<MaybeTlsStream<TcpStream>>>)
+    WSHandshake(#[from] tungstenite::HandshakeError<ClientHandshake<MaybeTlsStream<TcpStream>>>),
+
+    #[error(transparent)]
+    WS(#[from] tungstenite::Error),
 }

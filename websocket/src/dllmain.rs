@@ -1,6 +1,6 @@
-use std::{env, thread};
 use std::fs::OpenOptions;
 use std::time::Duration;
+use std::{env, thread};
 
 use gag::Redirect;
 use wchar::wchz;
@@ -10,12 +10,12 @@ use winapi::um::libloaderapi::DisableThreadLibraryCalls;
 use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, LPCWSTR};
 use winapi::um::{consoleapi::AllocConsole, wincon::FreeConsole};
 
-use crate::{CLEAR_THREAD_CONTROL, debug};
+use crate::{debug, CLEAR_THREAD_CONTROL};
 
 const AUTHOR: &[u16] = wchz!("_Skill_");
 const VER: &[u16] = wchz!("0.1");
-const DESC: &[u16] = wchz!("TCP с поддержкой прокси");
-pub const DEBUG: bool = false;
+const DESC: &[u16] = wchz!("Просто реализация WebSocket");
+pub const DEBUG: bool = true;
 
 #[no_mangle]
 extern "stdcall" fn info_getAuthor() -> LPCWSTR {
@@ -55,19 +55,17 @@ extern "stdcall" fn DllMain(h_module: HINSTANCE, dw_reason: DWORD, _: LPVOID) ->
 
             std::mem::forget(Redirect::stderr(log).unwrap());
         }
-        DLL_PROCESS_DETACH => {
-            unsafe {
-                if let Some(send) = CLEAR_THREAD_CONTROL.take() {
-                    send.send(()).expect("couldn't send to interrupt sleep");
-                    debug!("Sent signal to stop clearing cache")
-                };
+        DLL_PROCESS_DETACH => unsafe {
+            if let Some(send) = CLEAR_THREAD_CONTROL.take() {
+                send.send(()).expect("couldn't send to interrupt sleep");
+                debug!("Sent signal to stop clearing cache")
+            };
 
-                if DEBUG {
-                    thread::sleep(Duration::from_secs(5));
-                    FreeConsole();
-                }
+            if DEBUG {
+                thread::sleep(Duration::from_secs(5));
+                FreeConsole();
             }
-        }
+        },
         _ => {}
     }
     TRUE
