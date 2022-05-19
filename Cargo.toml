@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "pkdll_template"
 version = "0.0.1"
@@ -14,4 +16,4 @@ crate-type = ["cdylib"]
 [profile.release]
 lto = "fat"
 codegen-units = 1
-panic = 'abort'
+rustflags = ["-C", "link-args=/DEBUG:NONE"]
