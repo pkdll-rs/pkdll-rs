@@ -18,15 +18,13 @@ impl<T: AsRef<OsStr>> ToWidechar for T {
 }
 
 pub trait FromWidechar {
-    fn from_widechar(widechar_ptr: LPCWSTR) -> String;
+    unsafe fn from_widechar(widechar_ptr: LPCWSTR) -> String;
 }
 
 impl FromWidechar for String {
-    fn from_widechar(widechar_ptr: LPCWSTR) -> String {
-		unsafe {
-			let len = (0..).take_while(|&i| *widechar_ptr.offset(i) != 0).count();
-			let slice = std::slice::from_raw_parts(widechar_ptr, len);
-			OsString::from_wide(slice).into_string().unwrap()
-		}
+    unsafe fn from_widechar(widechar_ptr: LPCWSTR) -> String {
+		let len = (0..).take_while(|&i| *widechar_ptr.offset(i) != 0).count();
+		let slice = std::slice::from_raw_parts(widechar_ptr, len);
+		OsString::from_wide(slice).into_string().unwrap()
 	}
 }
