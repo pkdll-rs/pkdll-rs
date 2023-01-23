@@ -428,9 +428,9 @@ dependencies = [
 
 [[package]]
 name = "hex"
-version = "0.4.3"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+checksum = "d6a22814455d41612f41161581c2883c0c6a1c41852729b17d5ed88f01e153aa"
 
 [[package]]
 name = "hmac"

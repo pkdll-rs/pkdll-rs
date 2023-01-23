@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "crypto"
 version = "0.0.4"
@@ -6,11 +8,30 @@ edition = "2021"
 [dependencies]
 wchar = "0.11"
 winapi = { version = "0.3.7", features = ["consoleapi", "libloaderapi"] }
+mimalloc = { version = "0.1.17" }
 libc = "0.2.107"
+
+# Errors
+thiserror = "1.0"
+anyhow = "1.0.52"
+
+# Utils
+byteorder = "1.4.3"
+rand = "0.8.4"
+
+# Encodings
 base64 = "0.13.0"
-hex = "0.4.3"
+hex = "0.2.0"
+
+# Encryption
 aes = "0.7.5"
+ctr = "0.8.0"
+blowfish = "0.8.0"
+rsa = "0.5.0"
+arc4 = "0.1.0"
 block-modes = "0.8.1"
+
+# Hashes
 digest = "0.9.0"
 sha2 = "0.9.8"
 md-5 = "0.9.1"
@@ -21,18 +42,11 @@ ripemd160 = "0.9.1"
 ripemd256 = "0.1.0"
 ripemd320 = "0.9.0"
 hmac = {version = "0.11.0", features = ["std"]}
-thiserror = "1.0"
-rsa = "0.5.0"
-rand = "0.8.4"
+
+# KDFs
 bcrypt = "0.10.1"
 scrypt = "0.8.0"
 pbkdf2 = {version = "0.9.0", features = ["simple", "sha1"]}
-blowfish = "0.8.0"
-byteorder = "1.4.3"
-mimalloc = { version = "0.1.17" }
-arc4 = "0.1.0"
-ctr = "0.8.0"
-anyhow = "1.0.52"
 
 [dev-dependencies]
 criterion = "0.3"
@@ -46,7 +60,13 @@ harness = false
 [lib]
 crate-type = ["cdylib"]
 
+[profile.dev]
+rustflags = ["-C", "link-args=/DEBUG:NONE"]
+
 [profile.release]
+rustflags = ["-C", "link-args=/DEBUG:NONE"]
+
+[profile.release-lto]
+inherits = "release"
 lto = "fat"
 codegen-units = 1
-panic = 'abort'
