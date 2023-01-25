@@ -17,7 +17,7 @@ pub fn from_ptr(data_ptr: *const u16) -> Result<String, OsString> {
     unsafe {
         let len = (0..).take_while(|&i| *data_ptr.offset(i) != 0).count();
         let slice = std::slice::from_raw_parts(data_ptr, len);
-        return OsString::from_wide(slice).into_string();
+        OsString::from_wide(slice).into_string()
     }
 }
 

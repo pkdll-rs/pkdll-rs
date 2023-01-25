@@ -1,31 +1,20 @@
-mod aes;
-mod blowfish;
-mod dllmain;
-mod hash;
-mod hmac;
-mod kdf;
-mod random;
-mod rc4;
-mod rsa;
-mod xor;
+#![feature(try_trait_v2)]
+#![feature(exhaustive_patterns)]
 
-mod utils {
-    pub mod aes;
-    pub mod blowfish;
-    pub mod cipher;
-    pub mod cstring;
-    pub mod hash;
-    pub mod hmac;
-    pub mod kdf;
-    pub mod macros;
-    pub mod random;
-    pub mod rsa;
-    pub mod xor;
-}
+mod dllmain;
+mod handlers;
+mod imp;
+mod utils;
+mod wstring;
+
+use std::sync::atomic::AtomicBool;
 
 pub use crate::utils::*;
 
 pub const ERR: &str = "ERR|";
+pub const DEBUG: bool = option_env!("DLL_DEBUG").is_some();
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+pub static CONSOLE_OPEN: AtomicBool = AtomicBool::new(false);
