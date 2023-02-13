@@ -1,9 +1,7 @@
 use bcrypt::BcryptError;
 
 use crate::{
-    imp::{
-        kdf::{self, error::KdfError},
-    },
+    imp::kdf::{self, error::KdfError},
     utils::base64,
     wstring::{FromWidechar, ToWidechar, LPCWSTR},
 };
@@ -69,7 +67,7 @@ pub unsafe extern "stdcall" fn scrypt(
     let salt = String::from_widechar_ptr(salt_ptr);
     let salt = base64::decode(salt)?;
 
-    let hashed = kdf::scrypt(data, log_n, r, p, len, salt)?;
+    let hashed = kdf::scrypt(&data, log_n, r, p, len, &salt)?;
 
     hashed.as_widechar_ptr()
 }
@@ -96,7 +94,34 @@ pub unsafe extern "stdcall" fn pbkdf2(
 
     let hash_type = String::from_widechar_ptr(hash_type_ptr);
 
-    let hashed = kdf::pbkdf2(data, salt, rounds, len, &hash_type)?;
+    let hashed = kdf::pbkdf2(&data, &salt, rounds, len, &hash_type)?;
+
+    hashed.as_widechar_ptr()
+}
+
+#[no_mangle]
+pub unsafe extern "stdcall" fn evpkdf(
+    data_ptr: LPCWSTR,
+    salt_ptr: LPCWSTR,
+    rounds_ptr: LPCWSTR,
+    output_len_ptr: LPCWSTR,
+    hash_type_ptr: LPCWSTR,
+) -> LPCWSTR {
+    let data = String::from_widechar_ptr(data_ptr);
+    let data = base64::decode(data)?;
+
+    let salt = String::from_widechar_ptr(salt_ptr);
+    let salt = base64::decode(salt)?;
+
+    let rounds = String::from_widechar_ptr(rounds_ptr);
+    let rounds = rounds.parse::<usize>()?;
+
+    let len = String::from_widechar_ptr(output_len_ptr);
+    let len = len.parse::<usize>()?;
+
+    let hash_type = String::from_widechar_ptr(hash_type_ptr);
+
+    let hashed = kdf::evpkdf(&data, &salt, rounds, len, &hash_type)?;
 
     hashed.as_widechar_ptr()
 }

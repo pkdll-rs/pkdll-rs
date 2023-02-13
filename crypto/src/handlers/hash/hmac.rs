@@ -18,7 +18,7 @@ pub unsafe extern "stdcall" fn hmac(
 
     let hash_type = String::from_widechar_ptr(hash_type);
 
-    let hashed = hashing::make_hmac(data, key, &hash_type)?;
+    let hashed = hashing::make_hmac(&data, &key, &hash_type)?;
 
     base64::encode(hashed).as_widechar_ptr()
 }
