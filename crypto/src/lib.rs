@@ -1,5 +1,6 @@
 #![feature(try_trait_v2)]
 #![feature(exhaustive_patterns)]
+#![feature(trace_macros)]
 
 mod dllmain;
 mod handlers;

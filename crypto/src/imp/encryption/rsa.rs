@@ -1,20 +1,15 @@
 use md4::Md4;
 use md5::Md5;
-use rand::{
-    rngs::{StdRng},
-    SeedableRng,
-};
+use rand::{rngs::StdRng, SeedableRng};
 use ripemd::{Ripemd160, Ripemd256, Ripemd320};
 use rsa::{
     pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey},
     pkcs8::{DecodePrivateKey, DecodePublicKey, EncodePublicKey, LineEnding},
-    BigUint, Oaep, Pkcs1v15Encrypt, Pkcs1v15Sign, Pss, PublicKey, RsaPrivateKey,
-    RsaPublicKey,
+    BigUint, Oaep, Pkcs1v15Encrypt, Pkcs1v15Sign, Pss, PublicKey, RsaPrivateKey, RsaPublicKey,
 };
 use sha1::Sha1;
 use sha2::*;
 use sha3::*;
-
 
 use crate::imp::hashing::{error::HashError, make_hash};
 

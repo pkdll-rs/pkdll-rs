@@ -1,7 +1,7 @@
 use base64::{
     alphabet,
     engine::{
-        general_purpose::{NO_PAD, STANDARD_NO_PAD as BASE64},
+        general_purpose::{NO_PAD, STANDARD as BASE64},
         GeneralPurpose,
     },
     DecodeError, Engine,

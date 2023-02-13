@@ -1,4 +1,8 @@
-use crate::{wstring::{LPCWSTR, FromWidechar, ToWidechar}, utils::base64, imp::tool};
+use crate::{
+    imp::tool,
+    utils::base64,
+    wstring::{FromWidechar, ToWidechar, LPCWSTR},
+};
 
 #[no_mangle]
 pub unsafe extern "stdcall" fn random_bytes(len_ptr: LPCWSTR) -> LPCWSTR {
