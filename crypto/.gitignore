@@ -4,7 +4,7 @@
 !/target/i686-pc-windows-msvc/
 /target/i686-pc-windows-msvc/*
 
-!/target/i686-pc-windows-msvc/release
-/target/i686-pc-windows-msvc/release/*
+!/target/i686-pc-windows-msvc/release-lto
+/target/i686-pc-windows-msvc/release-lto/*
 
-!/target/i686-pc-windows-msvc/release/*.dll
+!/target/i686-pc-windows-msvc/release-lto/*.dll
