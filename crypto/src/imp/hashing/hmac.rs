@@ -17,7 +17,7 @@ pub fn make_hmac(
     data: &[u8],
     key: &[u8],
     hash_type: &str,
-) -> Result<String, HashError> {
+) -> Result<Vec<u8>, HashError> {
     let mac = call_with_hash_generic!(_hmac(data, key), hmac(hash_type), HashError::InvalidHashType)?;
-    Ok(base64::encode(mac))
+    Ok(mac)
 }

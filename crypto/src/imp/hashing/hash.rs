@@ -11,8 +11,8 @@ fn _hash<D: Digest>(data: &[u8]) -> Vec<u8> {
     hasher.finalize().to_vec()
 }
 
-pub fn make_hash(data: impl AsRef<[u8]>, hash_type: &str) -> Result<String, HashError> {
+pub fn make_hash(data: impl AsRef<[u8]>, hash_type: &str) -> Result<Vec<u8>, HashError> {
     let data = data.as_ref();
     let hashed = call_with_hash_generic!(_hash(data), hash_type, HashError::InvalidHashType);
-    Ok(base64::encode(hashed))
+    Ok(hashed)
 }

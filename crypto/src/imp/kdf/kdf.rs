@@ -31,7 +31,7 @@ pub fn pbkdf2(
     rounds: u32,
     key_length: usize,
     hash_type: &str,
-) -> Result<String, HashError> {
+) -> Result<Vec<u8>, HashError> {
     let data = data.as_ref();
     let salt = salt.as_ref();
     let mut output = vec![0u8; key_length];
@@ -40,7 +40,7 @@ pub fn pbkdf2(
         hmac(hash_type),
         HashError::InvalidHashType
     );
-    Ok(base64::encode(output))
+    Ok(output)
 }
 
 pub fn evpkdf(
@@ -49,12 +49,12 @@ pub fn evpkdf(
     rounds: usize,
     output_length: usize,
     hash_type: &str,
-) -> Result<String, HashError> {
+) -> Result<Vec<u8>, HashError> {
     let mut output = vec![0u8; output_length];
     call_with_hash_generic!(
         evpkdf::evpkdf(data, salt, rounds, &mut output),
         hash_type,
         HashError::InvalidHashType
     );
-    Ok(base64::encode(output))
+    Ok(output)
 }

@@ -87,8 +87,8 @@ pub fn rsa_sign(data: &[u8], key: &str, hash_type: &str, mode: &str) -> Result<V
     let hashed_data = make_hash(data, hash_type)?;
 
     let signed = match sign_padding_from_str(hash_type, mode)? {
-        SignatureScheme::Pkcs1(padding) => priv_key.sign(padding, hashed_data.as_bytes())?,
-        SignatureScheme::Pss(padding) => priv_key.sign(padding, hashed_data.as_bytes())?,
+        SignatureScheme::Pkcs1(padding) => priv_key.sign(padding, &hashed_data)?,
+        SignatureScheme::Pss(padding) => priv_key.sign(padding, &hashed_data)?,
     };
 
     Ok(signed)

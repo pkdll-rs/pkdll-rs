@@ -96,7 +96,7 @@ pub unsafe extern "stdcall" fn pbkdf2(
 
     let hashed = kdf::pbkdf2(&data, &salt, rounds, len, &hash_type)?;
 
-    hashed.as_widechar_ptr()
+    base64::encode(hashed).as_widechar_ptr()
 }
 
 #[no_mangle]
@@ -123,5 +123,5 @@ pub unsafe extern "stdcall" fn evpkdf(
 
     let hashed = kdf::evpkdf(&data, &salt, rounds, len, &hash_type)?;
 
-    hashed.as_widechar_ptr()
+    base64::encode(hashed).as_widechar_ptr()
 }
